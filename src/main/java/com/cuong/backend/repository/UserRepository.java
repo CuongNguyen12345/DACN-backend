@@ -8,6 +8,9 @@ import java.util.List;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
+    boolean existsByUserName(String userName);
+
     List<UserEntity> findAllByUserName(String userName);
+
     UserEntity findOneByUserName(String userName);
 }
