@@ -1,6 +1,8 @@
 package com.cuong.backend.service;
 
 import com.cuong.backend.entity.UserEntity;
+import com.cuong.backend.exception.AppException;
+import com.cuong.backend.exception.ErrorCode;
 import com.cuong.backend.model.request.UserCreationRequest;
 import com.cuong.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +17,7 @@ public class UserService {
 
     public UserEntity createUser(UserCreationRequest request) {
         if (repository.existsByUserName(request.getUsername())) {
-            throw new RuntimeException("User already exists");
+            throw new AppException(ErrorCode.USER_EXISTED);
         }
         UserEntity entity = new UserEntity();
         entity.setUserName(request.getUsername());

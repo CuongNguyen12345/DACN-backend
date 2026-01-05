@@ -1,4 +1,4 @@
-package com.cuong.backend.exception;
+package com.cuong.backend.model.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AccessLevel;
