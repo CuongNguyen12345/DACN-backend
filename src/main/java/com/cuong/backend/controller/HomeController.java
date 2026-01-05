@@ -2,6 +2,7 @@ package com.cuong.backend.controller;
 
 import com.cuong.backend.entity.UserEntity;
 import com.cuong.backend.model.request.UserCreationRequest;
+import com.cuong.backend.exception.ApiResponse;
 import com.cuong.backend.service.UserService;
 
 import jakarta.validation.Valid;
@@ -34,7 +35,9 @@ public class HomeController {
     }
 
     @PostMapping("/register")
-    public UserEntity register(@RequestBody @Valid UserCreationRequest request) {
-        return service.createUser(request);
+    public ApiResponse<UserEntity> register(@RequestBody @Valid UserCreationRequest request) {
+        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
+        apiResponse.setResult(service.createUser(request));
+        return apiResponse;
     }
 }
