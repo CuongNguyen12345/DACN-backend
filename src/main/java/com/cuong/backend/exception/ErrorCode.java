@@ -4,9 +4,14 @@ import lombok.Getter;
 
 @Getter
 public enum ErrorCode {
-    UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error"),
-    USER_EXISTED(1001, "User existed"),
-    USER_NOT_FOUND(1002, "User not found");
+    UNCATEGORIZED_EXCEPTION(9999, "Lỗi không xác định"),
+    INVALID_KEY(1001, "Invalid message key"),
+    EMAIL_EXISTED(1002, "Email đã đăng kí trước đó"),
+    EMAIL_EXISTED_GOOGLE(1003, "Email đã đăng kí bằng google"),
+    USER_NOT_FOUND(1004, "Người dùng không tồn tại"),
+    INVALID_PASSWORD(1005, "Mật khẩu phải có ít nhất 8 ký tự"),
+    INVALID_USERNAME(1006, "Tên đăng nhập phải có ít nhất 7 ký tự"),
+    INVALID_EMAIL(1007, "Email không hợp lệ");
 
     private final int code;
     private final String message;

@@ -16,13 +16,13 @@ public class UserService {
     private UserRepository repository;
 
     public UserEntity createUser(UserCreationRequest request) {
-        if (repository.existsByUserName(request.getUsername())) {
-            throw new AppException(ErrorCode.USER_EXISTED);
+        if (repository.existsByEmail(request.getEmail())) {
+            throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
         UserEntity entity = new UserEntity();
         entity.setUserName(request.getUsername());
         entity.setEmail(request.getEmail());
-        entity.setPhoneNumber(request.getPhoneNumber());
+        // entity.setProvider("LOCAL");
         entity.setPassword(request.getPassword());
 
         return repository.save(entity);
@@ -34,5 +34,21 @@ public class UserService {
 
     public List<UserEntity> getAllUsersByName(String name) {
         return repository.findAllByUserName(name);
+    }
+
+    public UserEntity login(UserCreationRequest request) {
+        UserEntity user = repository.findOneByEmail(request.getEmail());
+        if (user == null) {
+            throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        // if (user.getProvider().equals("GOOGLE")) {
+        // throw new AppException(ErrorCode.EMAIL_EXISTED_GOOGLE);
+        // }
+
+        // if (!user.getPassword().equals(request.getPassword())) {
+        // throw new AppException(ErrorCode.INVALID_PASSWORD);
+        // }
+        return user;
     }
 }

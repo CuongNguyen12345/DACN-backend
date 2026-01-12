@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173")
-public class HomeController {
+
+public class StudentController {
 
     @Autowired
     private UserService service;
@@ -23,11 +23,6 @@ public class HomeController {
     public String getMethodName() {
         return "success";
     }
-
-    // @GetMapping("/users")
-    // public List<UserEntity> getAllUsers() {
-    // return repository.findAll();
-    // }
 
     @GetMapping("/users")
     public List<UserEntity> getAllUsers() {
@@ -38,6 +33,13 @@ public class HomeController {
     public ApiResponse<UserEntity> register(@RequestBody @Valid UserCreationRequest request) {
         ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
         apiResponse.setResult(service.createUser(request));
+        return apiResponse;
+    }
+
+    @PostMapping("/login")
+    public ApiResponse<UserEntity> login(@RequestBody @Valid UserCreationRequest request) {
+        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
+        apiResponse.setResult(service.login(request));
         return apiResponse;
     }
 }

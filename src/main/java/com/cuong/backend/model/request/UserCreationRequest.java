@@ -1,5 +1,6 @@
 package com.cuong.backend.model.request;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -10,11 +11,12 @@ import lombok.experimental.FieldDefaults;
 @Setter
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserCreationRequest {
-    @Size(min = 7, message = "Username must be at least 7 characters long")
+    @Size(min = 7, message = "INVALID_USERNAME")
     String username;
-    String email;
-    String phoneNumber;
 
-    @Size(min = 8, message = "Password must be at least 8 characters long")
+    @Email(message = "INVALID_EMAIL")
+    String email;
+
+    @Size(min = 8, message = "INVALID_PASSWORD")
     String password;
 }

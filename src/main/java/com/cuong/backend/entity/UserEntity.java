@@ -27,8 +27,11 @@ public class UserEntity {
 
     String password;
 
+    // bỏ
     @Column(name = "phone_number")
     String phoneNumber;
+
+    // String provider;
 
     @Column(name = "createddate")
     @CreatedDate

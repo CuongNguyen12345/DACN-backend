@@ -11,9 +11,10 @@ import com.cuong.backend.model.response.ApiResponse;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = Exception.class)
-    ResponseEntity<ApiResponse> handleExceptions(Exception exception) {
-        ApiResponse apiResponse = new ApiResponse<>();
+    ResponseEntity<ApiResponse<AppException>> handleExceptions(Exception exception) {
+        ApiResponse<AppException> apiResponse = new ApiResponse<>();
         apiResponse.setCode(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode());
+        apiResponse.setSuccess(false);
         apiResponse.setMessage(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage());
         return ResponseEntity.badRequest().body(apiResponse);
     }
@@ -24,12 +25,27 @@ public class GlobalExceptionHandler {
 
         ApiResponse<AppException> apiResponse = new ApiResponse<>();
         apiResponse.setCode(errorCode.getCode());
+        apiResponse.setSuccess(false);
         apiResponse.setMessage(errorCode.getMessage());
         return ResponseEntity.badRequest().body(apiResponse);
     }
 
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
-    ResponseEntity<String> handlingValidationExceptions(MethodArgumentNotValidException exception) {
-        return ResponseEntity.badRequest().body(exception.getFieldError().getDefaultMessage());
+    ResponseEntity<ApiResponse<AppException>> handlingValidationExceptions(MethodArgumentNotValidException exception) {
+        String enumKey = exception.getFieldError().getDefaultMessage();
+        ErrorCode errorCode = ErrorCode.INVALID_KEY;
+
+        try {
+            errorCode = ErrorCode.valueOf(enumKey);
+        } catch (IllegalArgumentException e) {
+
+        }
+
+        ApiResponse<AppException> apiResponse = new ApiResponse<>();
+        apiResponse.setCode(errorCode.getCode());
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage(errorCode.getMessage());
+
+        return ResponseEntity.badRequest().body(apiResponse);
     }
 }
