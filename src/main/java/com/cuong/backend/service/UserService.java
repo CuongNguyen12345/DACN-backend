@@ -6,6 +6,8 @@ import com.cuong.backend.exception.ErrorCode;
 import com.cuong.backend.model.request.UserCreationRequest;
 import com.cuong.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,11 +21,16 @@ public class UserService {
         if (repository.existsByEmail(request.getEmail())) {
             throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
+        if (repository.existsByUserName(request.getUsername())) {
+            throw new AppException(ErrorCode.USER_EXISTED);
+        }
+        
         UserEntity entity = new UserEntity();
         entity.setUserName(request.getUsername());
         entity.setEmail(request.getEmail());
-        // entity.setProvider("LOCAL");
-        entity.setPassword(request.getPassword());
+        
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+        entity.setPassword(passwordEncoder.encode(request.getPassword()));
 
         return repository.save(entity);
     }

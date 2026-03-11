@@ -11,7 +11,8 @@ public enum ErrorCode {
     USER_NOT_FOUND(1004, "Người dùng không tồn tại"),
     INVALID_PASSWORD(1005, "Mật khẩu phải có ít nhất 8 ký tự"),
     INVALID_USERNAME(1006, "Tên đăng nhập phải có ít nhất 7 ký tự"),
-    INVALID_EMAIL(1007, "Email không hợp lệ");
+    INVALID_EMAIL(1007, "Email không hợp lệ"),
+    USER_EXISTED(1008, "Tên đăng nhập đã tồn tại");
 
     private final int code;
     private final String message;
