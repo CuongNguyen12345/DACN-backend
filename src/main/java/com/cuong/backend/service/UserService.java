@@ -3,6 +3,7 @@ package com.cuong.backend.service;
 import com.cuong.backend.entity.UserEntity;
 import com.cuong.backend.exception.AppException;
 import com.cuong.backend.exception.ErrorCode;
+import com.cuong.backend.model.request.AuthenticationRequest;
 import com.cuong.backend.model.request.UserCreationRequest;
 import com.cuong.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,19 +44,21 @@ public class UserService {
         return repository.findAllByUserName(name);
     }
 
-    public UserEntity login(UserCreationRequest request) {
+    public UserEntity login(AuthenticationRequest request) {
         UserEntity user = repository.findOneByEmail(request.getEmail());
         if (user == null) {
             throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
         // if (user.getProvider().equals("GOOGLE")) {
         // throw new AppException(ErrorCode.EMAIL_EXISTED_GOOGLE);
         // }
 
-        // if (!user.getPassword().equals(request.getPassword())) {
-        // throw new AppException(ErrorCode.INVALID_PASSWORD);
-        // }
         return user;
     }
 }
