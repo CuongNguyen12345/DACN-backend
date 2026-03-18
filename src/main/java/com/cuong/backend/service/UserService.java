@@ -66,7 +66,7 @@ public class UserService {
         // Find user by email
         UserEntity existingUser = repository.findOneByEmail(request.getEmail());
 
-        if (existingUser != null) {
+        if (existingUser != null && existingUser.getLoginByGoogle() == 1) {
             // User already exists, return it
             String token = jwtUtil.generateToken(existingUser.getEmail());
             return new AuthenticationResponse(token, existingUser);
