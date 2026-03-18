@@ -1,11 +1,7 @@
 package com.cuong.backend.controller;
 
 import com.cuong.backend.entity.UserEntity;
-import com.cuong.backend.model.request.AuthenticationRequest;
-import com.cuong.backend.model.response.ApiResponse;
 import com.cuong.backend.service.UserService;
-
-import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -29,18 +25,4 @@ public class StudentController {
         return service.getAllUsers();
     }
 
-    // @PostMapping("/register")
-    // public ApiResponse<UserEntity> register(@RequestBody @Valid
-    // UserCreationRequest request) {
-    // ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
-    // apiResponse.setResult(service.createUser(request));
-    // return apiResponse;
-    // }
-
-    @PostMapping("/login")
-    public ApiResponse<UserEntity> login(@RequestBody @Valid AuthenticationRequest request) {
-        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
-        apiResponse.setResult(service.login(request));
-        return apiResponse;
-    }
 }

@@ -2,8 +2,10 @@ package com.cuong.backend.controller;
 
 import com.cuong.backend.entity.UserEntity;
 import com.cuong.backend.model.request.AuthenticationRequest;
+import com.cuong.backend.model.request.GoogleLoginRequest;
 import com.cuong.backend.model.request.UserCreationRequest;
 import com.cuong.backend.model.response.ApiResponse;
+import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.service.UserService;
 
 import jakarta.validation.Valid;
@@ -26,9 +28,24 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ApiResponse<UserEntity> login(@RequestBody @Valid AuthenticationRequest request) {
-        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
+    public ApiResponse<AuthenticationResponse> login(@RequestBody @Valid AuthenticationRequest request) {
+        ApiResponse<AuthenticationResponse> apiResponse = new ApiResponse<>();
         apiResponse.setResult(service.login(request));
         return apiResponse;
     }
+
+    @PostMapping("/google")
+    public ApiResponse<AuthenticationResponse> loginWithGoogle(@RequestBody @Valid GoogleLoginRequest request) {
+        ApiResponse<AuthenticationResponse> apiResponse = new ApiResponse<>();
+        apiResponse.setResult(service.loginWithGoogle(request));
+        return apiResponse;
+    }
+
+    // @GetMapping("/profile")
+    // public ApiResponse<UserEntity> getProfile() {
+    // ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
+    // apiResponse.setResult(service.getProfile());
+    // return apiResponse;
+    // }
+
 }

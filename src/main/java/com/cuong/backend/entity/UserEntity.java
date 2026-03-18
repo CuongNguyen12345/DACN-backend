@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.Date;
 
@@ -14,6 +15,7 @@ import java.util.Date;
 @Setter
 @Entity
 @Table(name = "users")
+@EntityListeners(AuditingEntityListener.class)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserEntity {
     @Id
@@ -27,11 +29,11 @@ public class UserEntity {
 
     String password;
 
-    // bỏ
     @Column(name = "phone_number")
     String phoneNumber;
 
-    // String provider;
+    @Column(name = "login_by_google")
+    int loginByGoogle = 0;
 
     @Column(name = "createddate")
     @CreatedDate
