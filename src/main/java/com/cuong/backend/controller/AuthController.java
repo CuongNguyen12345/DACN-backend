@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+
+// nhanh_cua_Han
 public class AuthController {
 
     @Autowired
