@@ -4,8 +4,10 @@ import com.cuong.backend.entity.UserEntity;
 import com.cuong.backend.exception.AppException;
 import com.cuong.backend.exception.ErrorCode;
 import com.cuong.backend.model.request.AuthenticationRequest;
+import com.cuong.backend.model.request.ForgotPasswordRequest;
 import com.cuong.backend.model.request.GoogleLoginRequest;
 import com.cuong.backend.model.request.UserCreationRequest;
+import com.cuong.backend.model.request.VerifyOTPRequest;
 import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.repository.UserRepository;
 import com.cuong.backend.util.JwtUtil;
@@ -91,7 +93,7 @@ public class UserService {
         return new AuthenticationResponse(token, savedUser);
     }
 
-    public String requestOTP(com.cuong.backend.model.request.ForgotPasswordRequest request) {
+    public String requestOTP(ForgotPasswordRequest request) {
         UserEntity user = repository.findOneByEmail(request.getEmail());
         if (user == null) {
             throw new AppException(ErrorCode.USER_NOT_FOUND);
@@ -100,7 +102,7 @@ public class UserService {
         // Generate 6-digit OTP
         java.util.Random random = new java.util.Random();
         int otp = 100000 + random.nextInt(900000);
-        
+
         user.setOtp(String.valueOf(otp));
         repository.save(user);
 
@@ -109,13 +111,13 @@ public class UserService {
         message.setTo(user.getEmail());
         message.setSubject("Mã OTP đặt lại mật khẩu");
         message.setText("Mã OTP của bạn là: " + otp);
-        
+
         mailSender.send(message);
 
         return "OTP has been sent to your email";
     }
 
-    public String verifyOTP(com.cuong.backend.model.request.VerifyOTPRequest request) {
+    public String verifyOTP(VerifyOTPRequest request) {
         UserEntity user = repository.findOneByEmail(request.getEmail());
         if (user == null) {
             throw new AppException(ErrorCode.USER_NOT_FOUND);
@@ -127,11 +129,11 @@ public class UserService {
 
         // Generate random password
         String newPassword = UUID.randomUUID().toString().substring(0, 8);
-        
+
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setOtp(null); // Clear OTP
-        
+
         repository.save(user);
 
         // Send Email with new password
@@ -139,7 +141,7 @@ public class UserService {
         message.setTo(user.getEmail());
         message.setSubject("Mật khẩu truy cập mới");
         message.setText("Mật khẩu mới của bạn là: " + newPassword);
-        
+
         mailSender.send(message);
 
         return "Mật khẩu mới đã được gửi vào email";
