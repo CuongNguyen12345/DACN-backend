@@ -13,7 +13,8 @@ public enum ErrorCode {
     INVALID_USERNAME(1006, "Tên đăng nhập phải có ít nhất 7 ký tự"),
     INVALID_EMAIL(1007, "Email không hợp lệ"),
     USER_EXISTED(1008, "Tên đăng nhập đã tồn tại"),
-    WRONG_PASSWORD(1009, "Mật khẩu không chính xác");
+    WRONG_PASSWORD(1009, "Mật khẩu không chính xác"),
+    INVALID_OTP(1010, "Mã OTP không chính xác");
 
     private final int code;
     private final String message;

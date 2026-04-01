@@ -10,6 +10,7 @@ import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.repository.UserRepository;
 import com.cuong.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,9 @@ public class UserService {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private org.springframework.mail.javamail.JavaMailSender mailSender;
 
     public UserEntity createUser(UserCreationRequest request) {
         if (repository.existsByEmail(request.getEmail())) {
@@ -85,6 +89,60 @@ public class UserService {
         UserEntity savedUser = repository.save(newUser);
         String token = jwtUtil.generateToken(savedUser.getEmail());
         return new AuthenticationResponse(token, savedUser);
+    }
+
+    public String requestOTP(com.cuong.backend.model.request.ForgotPasswordRequest request) {
+        UserEntity user = repository.findOneByEmail(request.getEmail());
+        if (user == null) {
+            throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        // Generate 6-digit OTP
+        java.util.Random random = new java.util.Random();
+        int otp = 100000 + random.nextInt(900000);
+        
+        user.setOtp(String.valueOf(otp));
+        repository.save(user);
+
+        // Send Email
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(user.getEmail());
+        message.setSubject("Mã OTP đặt lại mật khẩu");
+        message.setText("Mã OTP của bạn là: " + otp);
+        
+        mailSender.send(message);
+
+        return "OTP has been sent to your email";
+    }
+
+    public String verifyOTP(com.cuong.backend.model.request.VerifyOTPRequest request) {
+        UserEntity user = repository.findOneByEmail(request.getEmail());
+        if (user == null) {
+            throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        if (user.getOtp() == null || !user.getOtp().equals(request.getOtp())) {
+            throw new AppException(ErrorCode.INVALID_OTP);
+        }
+
+        // Generate random password
+        String newPassword = UUID.randomUUID().toString().substring(0, 8);
+        
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setOtp(null); // Clear OTP
+        
+        repository.save(user);
+
+        // Send Email with new password
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(user.getEmail());
+        message.setSubject("Mật khẩu truy cập mới");
+        message.setText("Mật khẩu mới của bạn là: " + newPassword);
+        
+        mailSender.send(message);
+
+        return "Mật khẩu mới đã được gửi vào email";
     }
 
     // public UserEntity getProfile() {

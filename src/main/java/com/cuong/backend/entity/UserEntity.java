@@ -35,6 +35,21 @@ public class UserEntity {
     @Column(name = "login_by_google")
     int loginByGoogle = 0;
 
+    @Column(name = "otp")
+    String otp;
+
+    @Column(name = "role")
+    String role;
+
+    @Column(name = "grade")
+    String grade;
+
+    @Column(name = "school_name")
+    String schoolName;
+
+    @Column(name = "current_streak")
+    Integer currentStreak;
+
     @Column(name = "createddate")
     @CreatedDate
     Date createdDate;
