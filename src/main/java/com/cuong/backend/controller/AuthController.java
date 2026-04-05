@@ -9,6 +9,7 @@ import com.cuong.backend.model.response.ApiResponse;
 import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.service.UserService;
 import com.cuong.backend.model.request.ForgotPasswordRequest;
+import com.cuong.backend.model.request.UpdateProfileRequest;
 
 import jakarta.validation.Valid;
 
@@ -58,11 +59,21 @@ public class AuthController {
     }
 
     
-    // @GetMapping("/profile")
-    // public ApiResponse<UserEntity> getProfile() {
-    // ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
-    // apiResponse.setResult(service.getProfile());
-    // return apiResponse;
-    // }
+    @GetMapping("/profile")
+    public ApiResponse<UserEntity> getProfile(@RequestHeader("Authorization") String token) {
+        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
+        apiResponse.setResult(service.getProfile(token));
+        return apiResponse;
+    }
+
+    
+    @PutMapping("/profile")
+    public ApiResponse<UserEntity> updateProfile(
+            @RequestHeader("Authorization") String token,
+            @RequestBody UpdateProfileRequest request) {
+        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
+        apiResponse.setResult(service.updateProfile(token, request));
+        return apiResponse;
+    }
 
 }

@@ -7,6 +7,7 @@ import com.cuong.backend.model.request.AuthenticationRequest;
 import com.cuong.backend.model.request.ForgotPasswordRequest;
 import com.cuong.backend.model.request.GoogleLoginRequest;
 import com.cuong.backend.model.request.UserCreationRequest;
+import com.cuong.backend.model.request.UpdateProfileRequest;
 import com.cuong.backend.model.request.VerifyOTPRequest;
 import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.repository.UserRepository;
@@ -83,6 +84,7 @@ public class UserService {
         newUser.setUserName(request.getName());
         newUser.setEmail(request.getEmail());
         newUser.setLoginByGoogle(1);
+        newUser.setRole("STUDENT");
 
         // Generate random password as password is required
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
@@ -147,11 +149,40 @@ public class UserService {
         return "Mật khẩu mới đã được gửi vào email";
     }
 
-    // public UserEntity getProfile() {
-    // UserEntity user = repository.findOneByEmail(request.getEmail());
-    // if (user == null) {
-    // throw new AppException(ErrorCode.USER_NOT_FOUND);
-    // }
-    // return user;
-    // }
+    public UserEntity getProfile(String token) {
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        try {
+            String email = jwtUtil.extractEmail(token);
+            UserEntity user = repository.findOneByEmail(email);
+            if (user == null) {
+                throw new AppException(ErrorCode.USER_NOT_FOUND);
+            }
+            return user;
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+    }
+
+    public UserEntity updateProfile(String token, UpdateProfileRequest request) {
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        try {
+            String email = jwtUtil.extractEmail(token);
+            UserEntity user = repository.findOneByEmail(email);
+            if (user == null) {
+                throw new AppException(ErrorCode.USER_NOT_FOUND);
+            }
+            if (request.getGrade() != null) user.setGrade(request.getGrade());
+            if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
+            if (request.getSchoolName() != null) user.setSchoolName(request.getSchoolName());
+            return repository.save(user);
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+    }
 }

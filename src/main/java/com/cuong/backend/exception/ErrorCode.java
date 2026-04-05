@@ -14,7 +14,8 @@ public enum ErrorCode {
     INVALID_EMAIL(1007, "Email không hợp lệ"),
     USER_EXISTED(1008, "Tên đăng nhập đã tồn tại"),
     WRONG_PASSWORD(1009, "Mật khẩu không chính xác"),
-    INVALID_OTP(1010, "Mã OTP không chính xác");
+    INVALID_OTP(1010, "Mã OTP không chính xác"),
+    INVALID_TOKEN(1011, "Token không hợp lệ hoặc đã hết hạn");
 
     private final int code;
     private final String message;
