@@ -14,6 +14,7 @@ import com.cuong.backend.repository.UserRepository;
 import com.cuong.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,7 +31,7 @@ public class UserService {
     private JwtUtil jwtUtil;
 
     @Autowired
-    private org.springframework.mail.javamail.JavaMailSender mailSender;
+    private JavaMailSender mailSender;
 
     public UserEntity createUser(UserCreationRequest request) {
         if (repository.existsByEmail(request.getEmail())) {
@@ -175,9 +176,12 @@ public class UserService {
             if (user == null) {
                 throw new AppException(ErrorCode.USER_NOT_FOUND);
             }
-            if (request.getGrade() != null) user.setGrade(request.getGrade());
-            if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
-            if (request.getSchoolName() != null) user.setSchoolName(request.getSchoolName());
+            if (request.getGrade() != null)
+                user.setGrade(request.getGrade());
+            if (request.getPhoneNumber() != null)
+                user.setPhoneNumber(request.getPhoneNumber());
+            if (request.getSchoolName() != null)
+                user.setSchoolName(request.getSchoolName());
             return repository.save(user);
         } catch (AppException e) {
             throw e;

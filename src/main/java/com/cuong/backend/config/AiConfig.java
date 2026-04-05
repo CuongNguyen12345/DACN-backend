@@ -11,7 +11,7 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 @Configuration
 public class AiConfig {
 
-    @Value("${google.ai.api.key}")
+    @Value("${gemini.api.key}")
     private String apiKey;
 
     // Model dành cho Admin (Tạo đề thi, phân loại bài học)
@@ -20,7 +20,7 @@ public class AiConfig {
     public ChatLanguageModel adminModel() {
         return GoogleAiGeminiChatModel.builder()
                 .apiKey(apiKey)
-                .modelName("gemini-3.1-flash-lite") // Model 500 RPD
+                .modelName("gemini-3.1-flash-lite-preview") // Model 500 RPD
                 .temperature(0.2) // Thấp để chính xác
                 .build();
     }
