@@ -28,3 +28,7 @@ spring:
           auth: true
           starttls:
             enable: true
+google:
+  ai:
+    api:
+      key: AIzaSyBYxLMIleldEFYg8wRhReqxMYyK9IYFggg
