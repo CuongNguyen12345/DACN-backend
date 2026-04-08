@@ -11,4 +11,5 @@ public class LessonResponseDTO {
     private String subjectBadge;
     private String videoUrl;
     private String pdfUrl;
+    private String content;
 }

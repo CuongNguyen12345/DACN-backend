@@ -5,6 +5,7 @@ import com.cuong.backend.entity.LessonEntity;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
+import com.cuong.backend.model.response.PageResponse;
 import com.cuong.backend.repository.ChapterRepository;
 import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.SubjectRepository;
@@ -29,7 +30,7 @@ public class CourseService {
     @Autowired
     private LessonRepository lessonRepository;
 
-    public List<ChapterResponseDTO> getCourseData(String grade, String subjectName, String keyword) {
+    public PageResponse<ChapterResponseDTO> getCourseData(String grade, String subjectName, String keyword, int page, int size) {
         List<SubjectEntity> subjects;
         
         boolean isAllGrade = grade == null || "all".equals(grade);
@@ -42,7 +43,6 @@ public class CourseService {
         } else if (!isAllGrade) {
             subjects = subjectRepository.findByGrade(grade);
         } else if (!isAllSubject) {
-            // Find all subjects with this name across all grades
             subjects = subjectRepository.findAll().stream()
                     .filter(s -> s.getName().equals(subjectName))
                     .collect(Collectors.toList());
@@ -50,13 +50,12 @@ public class CourseService {
             subjects = subjectRepository.findAll();
         }
 
-        List<ChapterResponseDTO> result = new ArrayList<>();
+        List<ChapterResponseDTO> allMatchingChapters = new ArrayList<>();
 
         for (SubjectEntity sub : subjects) {
             List<ChapterEntity> chapters = chapterRepository.findBySubjectIdOrderByOrderNumberAsc(sub.getId());
             
             for (ChapterEntity chap : chapters) {
-                // Find lessons in this chapter matching keyword
                 Specification<LessonEntity> spec = (root, query, cb) -> {
                     List<Predicate> predicates = new ArrayList<>();
                     predicates.add(cb.equal(root.get("chapterId"), chap.getId()));
@@ -69,7 +68,7 @@ public class CourseService {
                 List<LessonEntity> lessons = lessonRepository.findAll(spec);
                 
                 if (!lessons.isEmpty()) {
-                    result.add(ChapterResponseDTO.builder()
+                    allMatchingChapters.add(ChapterResponseDTO.builder()
                             .id(chap.getId())
                             .chapterName(chap.getChapterName())
                             .lessons(lessons.stream().map(l -> LessonResponseDTO.builder()
@@ -84,7 +83,94 @@ public class CourseService {
             }
         }
 
+        // Manual Pagination
+        int totalElements = allMatchingChapters.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int start = (page - 1) * size;
+        int end = Math.min(start + size, totalElements);
+
+        List<ChapterResponseDTO> paginatedData = new ArrayList<>();
+        if (start < totalElements) {
+            paginatedData = allMatchingChapters.subList(start, end);
+        }
+
+        return PageResponse.<ChapterResponseDTO>builder()
+                .currentPage(page)
+                .totalPages(totalPages)
+                .pageSize(size)
+                .totalElements(totalElements)
+                .data(paginatedData)
+                .build();
+    }
+
+    public Integer getFirstLessonId(String grade, String subjectName) {
+        List<SubjectEntity> subjects = subjectRepository.findByNameAndGrade(subjectName, grade)
+                .map(List::of)
+                .orElse(List.of());
+        
+        if (subjects.isEmpty()) return null;
+        
+        SubjectEntity sub = subjects.get(0);
+        List<ChapterEntity> chapters = chapterRepository.findBySubjectIdOrderByOrderNumberAsc(sub.getId());
+        
+        if (chapters.isEmpty()) return null;
+        
+        for (ChapterEntity chap : chapters) {
+            List<LessonEntity> lessons = lessonRepository.findByChapterId(chap.getId());
+            if (!lessons.isEmpty()) {
+                return lessons.get(0).getId();
+            }
+        }
+        
+        return null;
+    }
+
+    public List<ChapterResponseDTO> getCourseDataByLessonId(Integer lessonId) {
+        LessonEntity currentLesson = lessonRepository.findById(lessonId).orElse(null);
+        if (currentLesson == null) return List.of();
+        
+        ChapterEntity chapter = chapterRepository.findById(currentLesson.getChapterId()).orElse(null);
+        if (chapter == null) return List.of();
+        
+        SubjectEntity sub = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
+        if (sub == null) return List.of();
+        
+        // Now get all chapters and lessons for this subject
+        List<ChapterResponseDTO> result = new ArrayList<>();
+        List<ChapterEntity> chapters = chapterRepository.findBySubjectIdOrderByOrderNumberAsc(sub.getId());
+        
+        for (ChapterEntity chap : chapters) {
+            List<LessonEntity> lessons = lessonRepository.findByChapterId(chap.getId());
+            
+            result.add(ChapterResponseDTO.builder()
+                    .id(chap.getId())
+                    .chapterName(chap.getChapterName())
+                    .lessons(lessons.stream().map(l -> LessonResponseDTO.builder()
+                            .id(l.getId())
+                            .lessonName(l.getLessonName())
+                            .subjectBadge(sub.getName() + " " + sub.getGrade())
+                            .videoUrl(l.getVideoUrl())
+                            .pdfUrl(l.getPdfUrl())
+                            .build()).collect(Collectors.toList()))
+                    .build());
+        }
+        
         return result;
+    }
+
+    public LessonResponseDTO getLessonById(Integer lessonId) {
+        LessonEntity l = lessonRepository.findById(lessonId).orElse(null);
+        if (l == null) return null;
+        
+        LessonResponseDTO dto = LessonResponseDTO.builder()
+                .id(l.getId())
+                .lessonName(l.getLessonName())
+                .videoUrl(l.getVideoUrl())
+                .pdfUrl(l.getPdfUrl())
+                .build();
+                
+        dto.setContent(l.getContent());
+        return dto;
     }
 
     public java.util.List<com.cuong.backend.entity.SubjectEntity> getAllSubjects() {
