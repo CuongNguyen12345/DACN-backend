@@ -1,11 +1,13 @@
 package com.cuong.backend.controller;
 
 import com.cuong.backend.model.request.AddQuestionListRequest;
+import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
 import com.cuong.backend.model.response.AiChatResponse;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.service.AdminService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,6 +45,11 @@ public class AdminController {
     @GetMapping("/questions/{id}")
     public QuestionDetailResponseDTO getQuestion(@PathVariable Long id) {
         return adminService.getQuestionById(id);
+    }
+
+    @PutMapping("/questions/{id}")
+    public String updateQuestion(@PathVariable Long id, @RequestBody UpdateQuestionRequest request) {
+        return adminService.updateQuestion(id, request);
     }
 
     @DeleteMapping("/questions/{id}")

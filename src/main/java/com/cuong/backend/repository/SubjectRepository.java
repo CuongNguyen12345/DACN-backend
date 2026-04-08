@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface SubjectRepository extends JpaRepository<SubjectEntity, Integer> {
     Optional<SubjectEntity> findByNameAndGrade(String name, String grade);
+    java.util.List<SubjectEntity> findByGrade(String grade);
 }

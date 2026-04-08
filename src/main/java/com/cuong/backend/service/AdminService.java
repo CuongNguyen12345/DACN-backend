@@ -4,6 +4,7 @@ import com.cuong.backend.entity.QuestionEntity;
 import com.cuong.backend.entity.QuestionOptionEntity;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.model.request.AddQuestionListRequest;
+import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.repository.QuestionRepository;
@@ -220,6 +221,68 @@ public class AdminService {
                 .explanation(q.getExplanation())
                 .options(optionDTOs)
                 .build();
+    }
+
+    @Transactional
+    public String updateQuestion(Long id, UpdateQuestionRequest request) {
+        QuestionEntity questionEntity = questionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy câu hỏi với ID: " + id));
+
+        // Map Grade
+        String grade = request.getGrade();
+        if (grade != null && grade.startsWith("Lớp ")) {
+            grade = grade.replace("Lớp ", "").trim();
+        }
+
+        // Map Subject
+        String subjectName = request.getSubject();
+        if ("Vật Lý".equals(subjectName)) subjectName = "Lý";
+        if ("Hóa Học".equals(subjectName)) subjectName = "Hóa";
+        if ("Tiếng Anh".equals(subjectName)) subjectName = "Anh";
+
+        if (subjectName != null && grade != null) {
+            final String finalSubjectName = subjectName;
+            final String finalGrade = grade;
+            SubjectEntity subject = subjectRepository.findByNameAndGrade(finalSubjectName, finalGrade)
+                    .orElseThrow(() -> new RuntimeException(
+                            "Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
+            questionEntity.setSubjectId(subject.getId());
+        }
+
+        questionEntity.setContent(request.getContent());
+        questionEntity.setExplanation(request.getExplanation());
+
+        // Map Level
+        if (request.getLevel() != null) {
+            String level = "BASIC";
+            if ("Trung bình".equals(request.getLevel()) || "MEDIUM".equals(request.getLevel()) || "Thông hiểu".equals(request.getLevel()) || "Trung Bình".equals(request.getLevel()))
+                level = "MEDIUM";
+            else if ("Khó".equals(request.getLevel()) || "HARD".equals(request.getLevel()) || "Vận dụng".equals(request.getLevel()) || "Vận dụng cao".equals(request.getLevel()))
+                level = "HARD";
+            questionEntity.setLevel(level);
+        }
+
+        // Cập nhật Options: Tận dụng orphanRemoval = true
+        // Xóa tất cả options cũ bằng cách clear collection
+        if (questionEntity.getOptions() != null) {
+            questionEntity.getOptions().clear();
+        } else {
+            questionEntity.setOptions(new ArrayList<>());
+        }
+        
+        // Thêm các options mới
+        if (request.getOptions() != null) {
+            for (UpdateQuestionRequest.OptionItemRequest opt : request.getOptions()) {
+                QuestionOptionEntity optionEntity = new QuestionOptionEntity();
+                optionEntity.setQuestion(questionEntity);
+                optionEntity.setContent(opt.getContent());
+                optionEntity.setCorrect(opt.getIsCorrect() != null ? opt.getIsCorrect() : false);
+                questionEntity.getOptions().add(optionEntity);
+            }
+        }
+
+        questionRepository.save(questionEntity);
+        return "Cập nhật câu hỏi thành công.";
     }
 
     public String deleteQuestion(Long id) {
