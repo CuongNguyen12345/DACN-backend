@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-
-public class StudentController {
+@RequestMapping("/api/learning")
+public class CourseController {
 
     @Autowired
     private UserService service;
@@ -25,8 +25,10 @@ public class StudentController {
     }
 
     @GetMapping("/users")
-    public List<UserEntity> getAllUsers() {
-        return service.getAllUsers();
+    public List<UserEntity> getAllUsers(@RequestParam String grade,
+            @RequestParam String subject) {
+        List<UserEntity> users = service.getAllUsers();
+        return users;
     }
 
     // @PostMapping("/register")
@@ -37,10 +39,6 @@ public class StudentController {
     // return apiResponse;
     // }
 
-    @PostMapping("/login")
-    public ApiResponse<UserEntity> login(@RequestBody @Valid AuthenticationRequest request) {
-        ApiResponse<UserEntity> apiResponse = new ApiResponse<>();
-        apiResponse.setResult(service.login(request));
-        return apiResponse;
-    }
+    // @GetMapping("/course")
+
 }

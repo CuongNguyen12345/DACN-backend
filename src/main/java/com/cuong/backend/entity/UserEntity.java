@@ -16,6 +16,16 @@ import java.util.Date;
 @Table(name = "users")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserEntity {
+
+    public UserEntity() {
+    }
+
+    public UserEntity(String userName, String email, String password) {
+        this.userName = userName;
+        this.email = email;
+        this.password = password;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     long id;
@@ -27,11 +37,8 @@ public class UserEntity {
 
     String password;
 
-    // bỏ
     @Column(name = "phone_number")
     String phoneNumber;
-
-    // String provider;
 
     @Column(name = "createddate")
     @CreatedDate

@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,11 +26,11 @@ public class UserService {
         if (repository.existsByUserName(request.getUsername())) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
-        
+
         UserEntity entity = new UserEntity();
         entity.setUserName(request.getUsername());
         entity.setEmail(request.getEmail());
-        
+
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         entity.setPassword(passwordEncoder.encode(request.getPassword()));
 
@@ -37,7 +38,14 @@ public class UserService {
     }
 
     public List<UserEntity> getAllUsers() {
-        return repository.findAll();
+        List<UserEntity> users = new ArrayList<>();
+        users.add(new UserEntity("Cuong", "[EMAIL_ADDRESS]", "123456"));
+        users.add(new UserEntity("Han", "[EMAIL_ADDRESS]", "123456"));
+        users.add(new UserEntity("Thanh", "[EMAIL_ADDRESS]", "123456"));
+        users.add(new UserEntity("Linh", "[EMAIL_ADDRESS]", "123456"));
+        users.add(new UserEntity("Phuong", "[EMAIL_ADDRESS]", "123456"));
+        return users;
+        // return repository.findAll();
     }
 
     public List<UserEntity> getAllUsersByName(String name) {
@@ -61,4 +69,5 @@ public class UserService {
 
         return user;
     }
+
 }
