@@ -351,6 +351,9 @@ public class AdminService {
         exam.setTitle(request.getTitle());
         exam.setSubjectId(subjectId);
         exam.setDuration(request.getDuration());
+        exam.setDescription(request.getDescription());
+        exam.setTotalQuestions(request.getTotalQuestions());
+        exam.setAttemptCount(0); // Optional default
 
         // Parse question IDs: "Q-123" or plain numeric
         List<Long> numericIds = new ArrayList<>();
@@ -387,13 +390,54 @@ public class AdminService {
                 .build();
     }
 
-    public List<ExamResponseDTO> getAllExams() {
-        return examRepository.findAll().stream().map(exam -> {
+    public List<ExamResponseDTO> getAllExams(String keyword, String subject, String grade) {
+        List<ExamEntity> entities;
+        if ((keyword == null || keyword.isEmpty()) &&
+                (subject == null || "all".equals(subject)) &&
+                (grade == null || "all".equals(grade))) {
+            entities = examRepository.findAll();
+        } else {
+            entities = examRepository.findAll((root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+
+                if (keyword != null && !keyword.isEmpty()) {
+                    predicates.add(cb.like(cb.lower(root.get("title")), "%" + keyword.toLowerCase() + "%"));
+                }
+
+                if ((subject != null && !"all".equals(subject)) || (grade != null && !"all".equals(grade))) {
+                    var subQuery = query.subquery(Integer.class);
+                    var subRoot = subQuery.from(SubjectEntity.class);
+                    subQuery.select(subRoot.get("id"));
+
+                    List<Predicate> subPredicates = new ArrayList<>();
+                    if (subject != null && !"all".equals(subject)) {
+                        String dbSubject = subject;
+                        if ("Vật Lý".equals(dbSubject)) dbSubject = "Lý";
+                        else if ("Hóa Học".equals(dbSubject)) dbSubject = "Hóa";
+                        else if ("Tiếng Anh".equals(dbSubject)) dbSubject = "Anh";
+                        subPredicates.add(cb.equal(subRoot.get("name"), dbSubject));
+                    }
+                    if (grade != null && !"all".equals(grade)) {
+                        String dbGrade = grade.replace("Lớp ", "").trim();
+                        subPredicates.add(cb.equal(subRoot.get("grade"), dbGrade));
+                    }
+
+                    subQuery.where(subPredicates.toArray(new Predicate[0]));
+                    predicates.add(cb.in(root.get("subjectId")).value(subQuery));
+                }
+
+                return cb.and(predicates.toArray(new Predicate[0]));
+            });
+        }
+
+        return entities.stream().map(exam -> {
             // Map subjectId -> ten mon FE
             String subjectName = "Khác";
+            String gradeName = "Chưa rõ";
             var sOpt = subjectRepository.findById(exam.getSubjectId());
             if (sOpt.isPresent()) {
                 subjectName = sOpt.get().getName();
+                gradeName = "Lớp " + sOpt.get().getGrade();
                 if ("Lý".equals(subjectName)) subjectName = "Vật Lý";
                 else if ("Hóa".equals(subjectName)) subjectName = "Hóa Học";
                 else if ("Anh".equals(subjectName)) subjectName = "Tiếng Anh";
@@ -402,8 +446,10 @@ public class AdminService {
                     .id(exam.getId())
                     .title(exam.getTitle())
                     .subject(subjectName)
+                    .grade(gradeName)
                     .duration(exam.getDuration())
                     .questionCount(exam.getQuestionItems().size())
+                    .attemptCount(exam.getAttemptCount())
                     .build();
         }).toList();
     }
@@ -463,6 +509,9 @@ public class AdminService {
                 .duration(exam.getDuration())
                 .questions(questionItems)
                 .build();
+    }
+    public void incrementAttemptCount(Long id) {
+        examRepository.incrementAttemptCount(id);
     }
 }
 

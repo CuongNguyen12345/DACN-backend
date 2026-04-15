@@ -67,8 +67,11 @@ public class AdminController {
     }
 
     @GetMapping("/exams")
-    public List<ExamResponseDTO> getAllExams() {
-        return adminService.getAllExams();
+    public List<ExamResponseDTO> getAllExams(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) String grade) {
+        return adminService.getAllExams(keyword, subject, grade);
     }
 
     @GetMapping("/exams/{id}")

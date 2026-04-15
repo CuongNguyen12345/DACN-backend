@@ -29,6 +29,15 @@ public class ExamEntity {
     @Column(name = "duration")
     int duration;
 
+    @Column(name = "description")
+    String description;
+
+    @Column(name = "total_questions")
+    int totalQuestions;
+
+    @Column(name = "attempt_count")
+    int attemptCount;
+
     @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, orphanRemoval = true)
     List<ExamQuestionItemEntity> questionItems = new ArrayList<>();
 }

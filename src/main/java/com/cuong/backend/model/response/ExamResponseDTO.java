@@ -9,6 +9,8 @@ public class ExamResponseDTO {
     private long id;
     private String title;
     private String subject;  // tên môn đã map FE
+    private String grade;    // tên lớp
     private int duration;
     private int questionCount;
+    private int attemptCount;
 }
