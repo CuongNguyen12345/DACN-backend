@@ -1,9 +1,13 @@
 package com.cuong.backend.controller;
 
 import com.cuong.backend.model.request.AddQuestionListRequest;
+import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
 import com.cuong.backend.model.response.AiChatResponse;
+import com.cuong.backend.model.response.CreateExamResponse;
+import com.cuong.backend.model.response.ExamDetailResponseDTO;
+import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.service.AdminService;
@@ -55,6 +59,21 @@ public class AdminController {
     @DeleteMapping("/questions/{id}")
     public String deleteQuestion(@PathVariable Long id) {
         return adminService.deleteQuestion(id);
+    }
+
+    @PostMapping("/exams")
+    public CreateExamResponse createExam(@RequestBody CreateExamRequest request) {
+        return adminService.createExam(request);
+    }
+
+    @GetMapping("/exams")
+    public List<ExamResponseDTO> getAllExams() {
+        return adminService.getAllExams();
+    }
+
+    @GetMapping("/exams/{id}")
+    public ExamDetailResponseDTO getExamById(@PathVariable Long id) {
+        return adminService.getExamById(id);
     }
 
 }

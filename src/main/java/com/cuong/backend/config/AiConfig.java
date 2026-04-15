@@ -1,5 +1,7 @@
 package com.cuong.backend.config;
 
+import java.time.Duration;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +22,7 @@ public class AiConfig {
     public ChatLanguageModel adminModel() {
         return GoogleAiGeminiChatModel.builder()
                 .apiKey(apiKey)
-                .modelName("gemini-3.1-flash-lite-preview") // Model 500 RPD
+                .modelName("gemma-4-31b-it")
                 .temperature(0.2) // Thấp để chính xác
                 .build();
     }
@@ -35,4 +37,5 @@ public class AiConfig {
                 .temperature(0.7) // Cao hơn một chút để hội thoại tự nhiên
                 .build();
     }
+
 }
