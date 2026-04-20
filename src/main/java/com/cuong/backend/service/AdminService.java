@@ -17,6 +17,8 @@ import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.QuestionRepository;
 import com.cuong.backend.repository.SubjectRepository;
+import com.cuong.backend.util.FormatUtil;
+
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -52,18 +54,8 @@ public class AdminService {
     @Transactional
     public String addQuestionList(AddQuestionListRequest request) {
         // Map Frontend names to DB names if necessary. Example: "Lớp 10" -> "10"
-        String grade = request.getGrade();
-        if (grade != null && grade.startsWith("Lớp ")) {
-            grade = grade.replace("Lớp ", "").trim();
-        }
-
-        String subjectName = request.getSubject();
-        if ("Vật Lý".equals(subjectName))
-            subjectName = "Lý";
-        if ("Hóa Học".equals(subjectName))
-            subjectName = "Hóa";
-        if ("Tiếng Anh".equals(subjectName))
-            subjectName = "Anh";
+        String grade = FormatUtil.mapGradeToDb(request.getGrade());
+        String subjectName = FormatUtil.mapSubjectToDb(request.getSubject());
 
         SubjectEntity subject = subjectRepository.findByNameAndGrade(subjectName, grade)
                 .orElseThrow(() -> new RuntimeException(
@@ -78,11 +70,7 @@ public class AdminService {
             questionEntity.setExplanation(q.getExplanation());
 
             // Map FE level to DB level
-            String level = "BASIC";
-            if ("Trung Bình".equals(q.getLevel()) || "MEDIUM".equals(q.getLevel()))
-                level = "MEDIUM";
-            else if ("Khó".equals(q.getLevel()) || "HARD".equals(q.getLevel()))
-                level = "HARD";
+            String level = FormatUtil.mapLevelToDb(q.getLevel());
             questionEntity.setLevel(level);
 
             List<QuestionOptionEntity> optionEntities = new ArrayList<>();
@@ -118,11 +106,7 @@ public class AdminService {
                 }
 
                 if (level != null && !"all".equals(level)) {
-                    String dbLevel = "BASIC";
-                    if ("Trung bình".equals(level))
-                        dbLevel = "MEDIUM";
-                    else if ("Khó".equals(level))
-                        dbLevel = "HARD";
+                    String dbLevel = FormatUtil.mapLevelToDb(level);
                     predicates.add(cb.equal(root.get("level"), dbLevel));
                 }
 
@@ -134,17 +118,11 @@ public class AdminService {
 
                     List<Predicate> subPredicates = new ArrayList<>();
                     if (subject != null && !"all".equals(subject)) {
-                        String dbSubject = subject;
-                        if ("Vật Lý".equals(dbSubject))
-                            dbSubject = "Lý";
-                        else if ("Hóa Học".equals(dbSubject))
-                            dbSubject = "Hóa";
-                        else if ("Tiếng Anh".equals(dbSubject))
-                            dbSubject = "Anh";
+                        String dbSubject = FormatUtil.mapSubjectToDb(subject);
                         subPredicates.add(cb.equal(subRoot.get("name"), dbSubject));
                     }
                     if (grade != null && !"all".equals(grade)) {
-                        String dbGrade = grade.replace("Lớp ", "").trim();
+                        String dbGrade = FormatUtil.mapGradeToDb(grade);
                         subPredicates.add(cb.equal(subRoot.get("grade"), dbGrade));
                     }
 
@@ -165,18 +143,11 @@ public class AdminService {
             var sOpt = subjectRepository.findById(q.getSubjectId());
             if (sOpt.isPresent()) {
                 SubjectEntity s = sOpt.get();
-                subjectName = s.getName();
-                if ("Lý".equals(subjectName))
-                    subjectName = "Vật Lý";
-                if ("Hóa".equals(subjectName))
-                    subjectName = "Hóa Học";
-                if ("Anh".equals(subjectName))
-                    subjectName = "Tiếng Anh";
-
+                subjectName = FormatUtil.mapSubjectToDb(s.getName());
                 statusName = "Lớp " + s.getGrade();
             }
 
-            String levelName = "Dễ";
+            String levelName = q.getLevel();
             if ("MEDIUM".equals(q.getLevel()))
                 levelName = "Trung bình";
             else if ("HARD".equals(q.getLevel()))
@@ -206,17 +177,11 @@ public class AdminService {
         var sOpt = subjectRepository.findById(q.getSubjectId());
         if (sOpt.isPresent()) {
             SubjectEntity s = sOpt.get();
-            subjectName = s.getName();
-            if ("Lý".equals(subjectName))
-                subjectName = "Vật Lý";
-            if ("Hóa".equals(subjectName))
-                subjectName = "Hóa Học";
-            if ("Anh".equals(subjectName))
-                subjectName = "Tiếng Anh";
+            subjectName = FormatUtil.mapSubjectToDb(s.getName());
             statusName = "Lớp " + s.getGrade();
         }
 
-        String levelName = "Dễ";
+        String levelName = q.getLevel();
         if ("MEDIUM".equals(q.getLevel()))
             levelName = "Trung bình";
         else if ("HARD".equals(q.getLevel()))
@@ -261,14 +226,7 @@ public class AdminService {
         }
 
         // Map Subject
-        String subjectName = request.getSubject();
-        if ("Vật Lý".equals(subjectName))
-            subjectName = "Lý";
-        if ("Hóa Học".equals(subjectName))
-            subjectName = "Hóa";
-        if ("Tiếng Anh".equals(subjectName))
-            subjectName = "Anh";
-
+        String subjectName = FormatUtil.mapSubjectToDb(request.getSubject());
         if (subjectName != null && grade != null) {
             final String finalSubjectName = subjectName;
             final String finalGrade = grade;
@@ -283,13 +241,7 @@ public class AdminService {
 
         // Map Level
         if (request.getLevel() != null) {
-            String level = "BASIC";
-            if ("Trung bình".equals(request.getLevel()) || "MEDIUM".equals(request.getLevel())
-                    || "Thông hiểu".equals(request.getLevel()) || "Trung Bình".equals(request.getLevel()))
-                level = "MEDIUM";
-            else if ("Khó".equals(request.getLevel()) || "HARD".equals(request.getLevel())
-                    || "Vận dụng".equals(request.getLevel()) || "Vận dụng cao".equals(request.getLevel()))
-                level = "HARD";
+            String level = FormatUtil.mapLevelToDb(request.getLevel());
             questionEntity.setLevel(level);
         }
 
@@ -327,18 +279,10 @@ public class AdminService {
     @Transactional
     public CreateExamResponse createExam(CreateExamRequest request) {
         // Map subject name FE -> DB
-        String subjectName = request.getSubject();
-        if ("Vật Lý".equals(subjectName)) subjectName = "Lý";
-        else if ("Hóa Học".equals(subjectName)) subjectName = "Hóa";
-        else if ("Tiếng Anh".equals(subjectName)) subjectName = "Anh";
+        String subjectName = FormatUtil.mapSubjectToDb(request.getSubject());
 
         // Map Grade
-        String grade = request.getGrade();
-        if (grade != null && grade.startsWith("Lớp ")) {
-            grade = grade.replace("Lớp ", "").trim();
-        } else if (grade == null || grade.isEmpty()) {
-            grade = "10"; // Default
-        }
+        String grade = FormatUtil.mapGradeToDb(request.getGrade());
 
         // Find subjectId
         final String finalSubjectName = subjectName;
@@ -411,14 +355,11 @@ public class AdminService {
 
                     List<Predicate> subPredicates = new ArrayList<>();
                     if (subject != null && !"all".equals(subject)) {
-                        String dbSubject = subject;
-                        if ("Vật Lý".equals(dbSubject)) dbSubject = "Lý";
-                        else if ("Hóa Học".equals(dbSubject)) dbSubject = "Hóa";
-                        else if ("Tiếng Anh".equals(dbSubject)) dbSubject = "Anh";
+                        String dbSubject = FormatUtil.mapSubjectToDb(subject);
                         subPredicates.add(cb.equal(subRoot.get("name"), dbSubject));
                     }
                     if (grade != null && !"all".equals(grade)) {
-                        String dbGrade = grade.replace("Lớp ", "").trim();
+                        String dbGrade = FormatUtil.mapGradeToDb(grade);
                         subPredicates.add(cb.equal(subRoot.get("grade"), dbGrade));
                     }
 
@@ -436,11 +377,8 @@ public class AdminService {
             String gradeName = "Chưa rõ";
             var sOpt = subjectRepository.findById(exam.getSubjectId());
             if (sOpt.isPresent()) {
-                subjectName = sOpt.get().getName();
+                subjectName = FormatUtil.mapSubjectToDb(sOpt.get().getName());
                 gradeName = "Lớp " + sOpt.get().getGrade();
-                if ("Lý".equals(subjectName)) subjectName = "Vật Lý";
-                else if ("Hóa".equals(subjectName)) subjectName = "Hóa Học";
-                else if ("Anh".equals(subjectName)) subjectName = "Tiếng Anh";
             }
             return ExamResponseDTO.builder()
                     .id(exam.getId())

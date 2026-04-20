@@ -24,14 +24,16 @@ import java.util.UUID;
 
 @Service
 public class UserService {
-    @Autowired
-    private UserRepository repository;
+    
+    private final UserRepository repository;
+    private final JwtUtil jwtUtil;
+    private final JavaMailSender mailSender;
 
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private JavaMailSender mailSender;
+    public UserService(UserRepository repository, JwtUtil jwtUtil, JavaMailSender mailSender) {
+        this.repository = repository;
+        this.jwtUtil = jwtUtil;
+        this.mailSender = mailSender;
+    }
 
     public UserEntity createUser(UserCreationRequest request) {
         if (repository.existsByEmail(request.getEmail())) {

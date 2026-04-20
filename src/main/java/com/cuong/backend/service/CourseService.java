@@ -10,7 +10,7 @@ import com.cuong.backend.repository.ChapterRepository;
 import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.SubjectRepository;
 import jakarta.persistence.criteria.Predicate;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -21,15 +21,16 @@ import java.util.stream.Collectors;
 @Service
 public class CourseService {
 
-    @Autowired
-    private SubjectRepository subjectRepository;
+    private final SubjectRepository subjectRepository;
+    private final ChapterRepository chapterRepository;
+    private final LessonRepository lessonRepository;
 
-    @Autowired
-    private ChapterRepository chapterRepository;
-
-    @Autowired
-    private LessonRepository lessonRepository;
-
+    public CourseService(SubjectRepository subjectRepository, ChapterRepository chapterRepository, LessonRepository lessonRepository) {
+        this.subjectRepository = subjectRepository;
+        this.chapterRepository = chapterRepository;
+        this.lessonRepository = lessonRepository;
+    }
+    
     public PageResponse<ChapterResponseDTO> getCourseData(String grade, String subjectName, String keyword, int page, int size) {
         List<SubjectEntity> subjects;
         

@@ -21,8 +21,11 @@ import java.util.List;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    @Autowired
-    private AdminService adminService;
+    private final AdminService adminService;
+
+    public AdminController(AdminService adminService) {
+        this.adminService = adminService;
+    }
 
     @PostMapping("/ai/generate-questions")
     public AiChatResponse generateQuestions(@RequestBody AiChatRequest request) {
