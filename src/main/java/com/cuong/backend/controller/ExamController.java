@@ -18,9 +18,9 @@ public class ExamController {
 
     @GetMapping("/list")
     public List<ExamDTO> getExamList(
-            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) String subject,
             @RequestParam(required = false) Integer grade,
             @RequestParam(required = false) String keyword) {
-        return examService.getExamList(subjectId, grade, keyword);
+        return examService.getExamList(subject, grade, keyword);
     }
 }

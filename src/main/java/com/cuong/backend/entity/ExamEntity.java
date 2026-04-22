@@ -22,8 +22,7 @@ public class ExamEntity {
 
     String title;
 
-    @Column(name = "subject_id")
-    Long subjectId;
+    String subject;
 
     Integer grade;
 }
