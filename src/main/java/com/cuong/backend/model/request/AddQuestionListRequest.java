@@ -15,6 +15,7 @@ public class AddQuestionListRequest {
         private String content;
         private String explanation;
         private String level;
+        private String topicName;
         private List<OptionItemRequest> options;
     }
 

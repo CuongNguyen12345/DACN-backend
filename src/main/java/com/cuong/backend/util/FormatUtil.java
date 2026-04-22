@@ -11,6 +11,16 @@ public class FormatUtil {
         return subject;
     }
 
+    public static String mapSubjectToFe(String dbName) {
+        if ("Lý".equals(dbName))
+            return "Vật Lý";
+        if ("Hóa".equals(dbName))
+            return "Hóa Học";
+        if ("Anh".equals(dbName))
+            return "Tiếng Anh";
+        return dbName;
+    }
+
     public static String mapGradeToDb(String grade) {
         if (grade != null && grade.startsWith("Lớp ")) {
             return grade.replace("Lớp ", "").trim();
@@ -23,6 +33,14 @@ public class FormatUtil {
             return "MEDIUM";
         else if ("Khó".equals(level))
             return "HARD";
-        return "BASIC";
+        return "EASY";
+    }
+
+    public static String mapLevelToFe(String dbLevel) {
+        if ("MEDIUM".equals(dbLevel))
+            return "Trung bình";
+        else if ("HARD".equals(dbLevel))
+            return "Khó";
+        return "Dễ";
     }
 }

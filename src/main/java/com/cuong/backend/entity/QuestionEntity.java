@@ -25,18 +25,30 @@ public class QuestionEntity {
     @Column(name = "subject_id")
     int subjectId;
 
+    @Column(name = "topic_id")
+    Integer topicId;
+
     @Column(columnDefinition = "TEXT", nullable = false)
     String content;
+
+    @Column(name = "image_url", length = 255)
+    String imageUrl;
 
     @Column(columnDefinition = "TEXT")
     String explanation;
 
     @Column(name = "level")
-    String level; // 'BASIC', 'MEDIUM', 'HARD'
+    String level; // 'EASY', 'MEDIUM', 'HARD'
+
+    @Column(name = "status", length = 10)
+    String status; // 'DRAFT', 'ACTIVE', 'HIDDEN'
 
     @Column(name = "created_at")
     @CreatedDate
     Date createdAt;
+
+    @Column(name = "updated_at")
+    Date updatedAt;
 
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     List<QuestionOptionEntity> options;

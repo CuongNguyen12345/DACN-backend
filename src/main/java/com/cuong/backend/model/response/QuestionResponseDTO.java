@@ -13,5 +13,6 @@ public class QuestionResponseDTO {
     private String level;
     private String type;
     private String status;
+    private String topicName;
     private Date createdAt;
 }

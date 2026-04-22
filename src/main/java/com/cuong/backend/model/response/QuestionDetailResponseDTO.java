@@ -15,6 +15,8 @@ public class QuestionDetailResponseDTO {
     private String level;
     private String type;
     private String status;
+    private String topicName;
+    private Integer topicId;
     private Date createdAt;
     private String explanation;
     private List<OptionDTO> options;

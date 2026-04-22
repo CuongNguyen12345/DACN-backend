@@ -11,6 +11,7 @@ public class UpdateQuestionRequest {
     private String level;
     private String subject;
     private String grade;
+    private String topicName;
     private List<OptionItemRequest> options;
 
     @Data

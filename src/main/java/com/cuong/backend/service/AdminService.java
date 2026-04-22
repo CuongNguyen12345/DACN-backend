@@ -6,6 +6,7 @@ import com.cuong.backend.entity.ExamQuestionItemId;
 import com.cuong.backend.entity.QuestionEntity;
 import com.cuong.backend.entity.QuestionOptionEntity;
 import com.cuong.backend.entity.SubjectEntity;
+import com.cuong.backend.entity.TopicEntity;
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
@@ -17,6 +18,7 @@ import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.QuestionRepository;
 import com.cuong.backend.repository.SubjectRepository;
+import com.cuong.backend.repository.TopicRepository;
 import com.cuong.backend.util.FormatUtil;
 
 import jakarta.persistence.criteria.Predicate;
@@ -35,25 +37,58 @@ public class AdminService {
     private final SubjectRepository subjectRepository;
     private final QuestionRepository questionRepository;
     private final ExamRepository examRepository;
+    private final TopicRepository topicRepository;
 
     public AdminService(@Qualifier("adminModel") ChatLanguageModel aiModel,
             SubjectRepository subjectRepository,
             QuestionRepository questionRepository,
-            ExamRepository examRepository) {
+            ExamRepository examRepository,
+            TopicRepository topicRepository) {
         this.aiModel = aiModel;
         this.subjectRepository = subjectRepository;
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
+        this.topicRepository = topicRepository;
     }
 
     public String generateQuiz(String lessonContent) {
-        // Gọi AI model để sinh câu hỏi
         return aiModel.generate(lessonContent);
     }
 
+    // ---------- Topic helpers ----------
+
+    /**
+     * Resolve topic by name within a subject. Returns topicId.
+     * If topic doesn't exist, create it automatically.
+     */
+    private Integer resolveTopicId(String topicName, int subjectId) {
+        if (topicName == null || topicName.isBlank()) return null;
+        String trimmedName = topicName.trim();
+        return topicRepository.findByNameAndSubjectId(trimmedName, subjectId)
+                .map(TopicEntity::getId)
+                .orElseGet(() -> {
+                    TopicEntity newTopic = new TopicEntity();
+                    newTopic.setSubjectId(subjectId);
+                    newTopic.setName(trimmedName);
+                    return topicRepository.save(newTopic).getId();
+                });
+    }
+
+    private String resolveTopicName(Integer topicId) {
+        if (topicId == null) return null;
+        return topicRepository.findById(topicId)
+                .map(TopicEntity::getName)
+                .orElse(null);
+    }
+
+    public List<TopicEntity> getTopicsBySubjectId(int subjectId) {
+        return topicRepository.findBySubjectId(subjectId);
+    }
+
+    // ---------- Question CRUD ----------
+
     @Transactional
     public String addQuestionList(AddQuestionListRequest request) {
-        // Map Frontend names to DB names if necessary. Example: "Lớp 10" -> "10"
         String grade = FormatUtil.mapGradeToDb(request.getGrade());
         String subjectName = FormatUtil.mapSubjectToDb(request.getSubject());
 
@@ -68,10 +103,15 @@ public class AdminService {
             questionEntity.setSubjectId(subject.getId());
             questionEntity.setContent(q.getContent());
             questionEntity.setExplanation(q.getExplanation());
+            questionEntity.setStatus("ACTIVE");
 
             // Map FE level to DB level
             String level = FormatUtil.mapLevelToDb(q.getLevel());
             questionEntity.setLevel(level);
+
+            // Resolve topic
+            Integer topicId = resolveTopicId(q.getTopicName(), subject.getId());
+            questionEntity.setTopicId(topicId);
 
             List<QuestionOptionEntity> optionEntities = new ArrayList<>();
             for (AddQuestionListRequest.OptionItemRequest opt : q.getOptions()) {
@@ -97,7 +137,6 @@ public class AdminService {
                 (grade == null || "all".equals(grade))) {
             entities = questionRepository.findAll();
         } else {
-            // Xây dựng Specification hoàn chỉnh bao gồm mapping subject
             entities = questionRepository.findAll((root, query, cb) -> {
                 List<Predicate> predicates = new ArrayList<>();
 
@@ -110,7 +149,6 @@ public class AdminService {
                     predicates.add(cb.equal(root.get("level"), dbLevel));
                 }
 
-                // Vì không có @ManyToOne, ta dùng subquery để tìm subjectId
                 if ((subject != null && !"all".equals(subject)) || (grade != null && !"all".equals(grade))) {
                     var subQuery = query.subquery(Integer.class);
                     var subRoot = subQuery.from(SubjectEntity.class);
@@ -143,15 +181,12 @@ public class AdminService {
             var sOpt = subjectRepository.findById(q.getSubjectId());
             if (sOpt.isPresent()) {
                 SubjectEntity s = sOpt.get();
-                subjectName = FormatUtil.mapSubjectToDb(s.getName());
+                subjectName = FormatUtil.mapSubjectToFe(s.getName());
                 statusName = "Lớp " + s.getGrade();
             }
 
-            String levelName = q.getLevel();
-            if ("MEDIUM".equals(q.getLevel()))
-                levelName = "Trung bình";
-            else if ("HARD".equals(q.getLevel()))
-                levelName = "Khó";
+            String levelName = FormatUtil.mapLevelToFe(q.getLevel());
+            String topicName = resolveTopicName(q.getTopicId());
 
             result.add(QuestionResponseDTO.builder()
                     .id("Q-" + q.getId())
@@ -160,6 +195,7 @@ public class AdminService {
                     .level(levelName)
                     .type("Trắc nghiệm")
                     .status(statusName)
+                    .topicName(topicName)
                     .createdAt(q.getCreatedAt())
                     .build());
         }
@@ -177,15 +213,12 @@ public class AdminService {
         var sOpt = subjectRepository.findById(q.getSubjectId());
         if (sOpt.isPresent()) {
             SubjectEntity s = sOpt.get();
-            subjectName = FormatUtil.mapSubjectToDb(s.getName());
+            subjectName = FormatUtil.mapSubjectToFe(s.getName());
             statusName = "Lớp " + s.getGrade();
         }
 
-        String levelName = q.getLevel();
-        if ("MEDIUM".equals(q.getLevel()))
-            levelName = "Trung bình";
-        else if ("HARD".equals(q.getLevel()))
-            levelName = "Khó";
+        String levelName = FormatUtil.mapLevelToFe(q.getLevel());
+        String topicName = resolveTopicName(q.getTopicId());
 
         List<QuestionDetailResponseDTO.OptionDTO> optionDTOs = new ArrayList<>();
         String[] letters = { "A", "B", "C", "D", "E", "F" };
@@ -208,6 +241,8 @@ public class AdminService {
                 .level(levelName)
                 .type("Trắc nghiệm")
                 .status(statusName)
+                .topicName(topicName)
+                .topicId(q.getTopicId())
                 .createdAt(q.getCreatedAt())
                 .explanation(q.getExplanation())
                 .options(optionDTOs)
@@ -234,6 +269,10 @@ public class AdminService {
                     .orElseThrow(() -> new RuntimeException(
                             "Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
             questionEntity.setSubjectId(subject.getId());
+
+            // Resolve topic
+            Integer topicId = resolveTopicId(request.getTopicName(), subject.getId());
+            questionEntity.setTopicId(topicId);
         }
 
         questionEntity.setContent(request.getContent());
@@ -245,15 +284,13 @@ public class AdminService {
             questionEntity.setLevel(level);
         }
 
-        // Cập nhật Options: Tận dụng orphanRemoval = true
-        // Xóa tất cả options cũ bằng cách clear collection
+        // Cập nhật Options
         if (questionEntity.getOptions() != null) {
             questionEntity.getOptions().clear();
         } else {
             questionEntity.setOptions(new ArrayList<>());
         }
 
-        // Thêm các options mới
         if (request.getOptions() != null) {
             for (UpdateQuestionRequest.OptionItemRequest opt : request.getOptions()) {
                 QuestionOptionEntity optionEntity = new QuestionOptionEntity();
@@ -276,15 +313,13 @@ public class AdminService {
         return "Đã xóa thành công câu hỏi ID: " + id;
     }
 
+    // ---------- Exam CRUD ----------
+
     @Transactional
     public CreateExamResponse createExam(CreateExamRequest request) {
-        // Map subject name FE -> DB
         String subjectName = FormatUtil.mapSubjectToDb(request.getSubject());
-
-        // Map Grade
         String grade = FormatUtil.mapGradeToDb(request.getGrade());
 
-        // Find subjectId
         final String finalSubjectName = subjectName;
         final String finalGrade = grade;
         int subjectId = subjectRepository.findByNameAndGrade(finalSubjectName, finalGrade)
@@ -297,9 +332,8 @@ public class AdminService {
         exam.setDuration(request.getDuration());
         exam.setDescription(request.getDescription());
         exam.setTotalQuestions(request.getTotalQuestions());
-        exam.setAttemptCount(0); // Optional default
+        exam.setAttemptCount(0);
 
-        // Parse question IDs: "Q-123" or plain numeric
         List<Long> numericIds = new ArrayList<>();
         if (request.getQuestionIds() != null) {
             for (String raw : request.getQuestionIds()) {
@@ -311,8 +345,6 @@ public class AdminService {
         }
 
         List<QuestionEntity> questions = questionRepository.findAllById(numericIds);
-
-        // Build question items - save exam first to get ID
         ExamEntity saved = examRepository.save(exam);
 
         for (int i = 0; i < questions.size(); i++) {
@@ -372,12 +404,11 @@ public class AdminService {
         }
 
         return entities.stream().map(exam -> {
-            // Map subjectId -> ten mon FE
             String subjectName = "Khác";
             String gradeName = "Chưa rõ";
             var sOpt = subjectRepository.findById(exam.getSubjectId());
             if (sOpt.isPresent()) {
-                subjectName = FormatUtil.mapSubjectToDb(sOpt.get().getName());
+                subjectName = FormatUtil.mapSubjectToFe(sOpt.get().getName());
                 gradeName = "Lớp " + sOpt.get().getGrade();
             }
             return ExamResponseDTO.builder()
@@ -394,16 +425,12 @@ public class AdminService {
 
     public ExamDetailResponseDTO getExamById(Long id) {
         ExamEntity exam = examRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Kh\u00f4ng t\u00ecm th\u1ea5y đ\u1ec1 thi v\u1edbi ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đề thi với ID: " + id));
 
-        // Map subject
-        String subjectName = "Kh\u00e1c";
+        String subjectName = "Khác";
         var sOpt = subjectRepository.findById(exam.getSubjectId());
         if (sOpt.isPresent()) {
-            subjectName = sOpt.get().getName();
-            if ("L\u00fd".equals(subjectName)) subjectName = "V\u1eadt L\u00fd";
-            else if ("H\u00f3a".equals(subjectName)) subjectName = "H\u00f3a H\u1ecdc";
-            else if ("Anh".equals(subjectName)) subjectName = "Ti\u1ebfng Anh";
+            subjectName = FormatUtil.mapSubjectToFe(sOpt.get().getName());
         }
 
         String[] letters = {"A", "B", "C", "D", "E", "F"};
@@ -413,9 +440,7 @@ public class AdminService {
                 .map(item -> {
                     QuestionEntity q = item.getQuestion();
 
-                    String levelName = "D\u1ec5";
-                    if ("MEDIUM".equals(q.getLevel())) levelName = "Trung b\u00ecnh";
-                    else if ("HARD".equals(q.getLevel())) levelName = "Kh\u00f3";
+                    String levelName = FormatUtil.mapLevelToFe(q.getLevel());
 
                     List<ExamDetailResponseDTO.OptionItem> options = new ArrayList<>();
                     if (q.getOptions() != null) {
@@ -448,8 +473,8 @@ public class AdminService {
                 .questions(questionItems)
                 .build();
     }
+
     public void incrementAttemptCount(Long id) {
         examRepository.incrementAttemptCount(id);
     }
 }
-

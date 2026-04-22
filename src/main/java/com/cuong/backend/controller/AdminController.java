@@ -1,5 +1,7 @@
 package com.cuong.backend.controller;
 
+import com.cuong.backend.entity.SubjectEntity;
+import com.cuong.backend.entity.TopicEntity;
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
@@ -10,21 +12,26 @@ import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
+import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.service.AdminService;
+import com.cuong.backend.util.FormatUtil;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
     private final AdminService adminService;
+    private final SubjectRepository subjectRepository;
 
-    public AdminController(AdminService adminService) {
+    public AdminController(AdminService adminService, SubjectRepository subjectRepository) {
         this.adminService = adminService;
+        this.subjectRepository = subjectRepository;
     }
 
     @PostMapping("/ai/generate-questions")
@@ -63,6 +70,33 @@ public class AdminController {
     public String deleteQuestion(@PathVariable Long id) {
         return adminService.deleteQuestion(id);
     }
+
+    // ---------- Topics ----------
+
+    @GetMapping("/topics")
+    public List<Map<String, Object>> getTopics(
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) String grade) {
+        // Resolve subjectId from name + grade
+        String dbSubject = FormatUtil.mapSubjectToDb(subject);
+        String dbGrade = FormatUtil.mapGradeToDb(grade);
+
+        if (dbSubject == null || dbGrade == null) {
+            return List.of();
+        }
+
+        return subjectRepository.findByNameAndGrade(dbSubject, dbGrade)
+                .map(s -> adminService.getTopicsBySubjectId(s.getId()))
+                .orElse(List.of())
+                .stream()
+                .map(t -> Map.<String, Object>of(
+                        "id", t.getId(),
+                        "name", t.getName()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    // ---------- Exams ----------
 
     @PostMapping("/exams")
     public CreateExamResponse createExam(@RequestBody CreateExamRequest request) {
