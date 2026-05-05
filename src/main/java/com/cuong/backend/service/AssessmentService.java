@@ -57,27 +57,67 @@ public class AssessmentService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy môn " + subject + " lớp " + grade));
 
         int subjectId = subjectEntity.getId();
-        int[] ratios = SCORE_RATIOS.getOrDefault(targetScore, new int[] { 40, 40, 20 });
+        int[] ratios = SCORE_RATIOS.getOrDefault(targetScore, new int[]{40, 40, 20});
 
-        int easyCount = (int) Math.round(TOTAL_QUESTIONS * ratios[0] / 100.0);
-        int mediumCount = (int) Math.round(TOTAL_QUESTIONS * ratios[1] / 100.0);
-        int hardCount = TOTAL_QUESTIONS - easyCount - mediumCount;
+        // ── Bước 1: Lấy toàn bộ câu hỏi của môn ───────────────────────────
+        List<QuestionEntity> allPool = new ArrayList<>(questionRepository.findAll(
+                (root, query, cb) -> cb.equal(root.get("subjectId"), subjectId)));
 
-        List<QuestionEntity> easyQs = fetchRandom(subjectId, "EASY", easyCount);
-        List<QuestionEntity> mediumQs = fetchRandom(subjectId, "MEDIUM", mediumCount);
-        List<QuestionEntity> hardQs = fetchRandom(subjectId, "HARD", hardCount);
+        if (allPool.isEmpty()) {
+            return AssessmentQuestionsResponse.builder()
+                    .subject(subject).grade(grade).targetScore(targetScore)
+                    .totalQuestions(0).questions(List.of()).build();
+        }
 
-        List<QuestionEntity> all = new ArrayList<>();
-        all.addAll(easyQs);
-        all.addAll(mediumQs);
-        all.addAll(hardQs);
-        Collections.shuffle(all);
+        // ── Bước 2: Nhóm theo topic, xáo trộn trong mỗi topic ─────────────
+        Map<Integer, List<QuestionEntity>> byTopic = new LinkedHashMap<>();
+        for (QuestionEntity q : allPool) {
+            Integer tid = q.getTopicId() != null ? q.getTopicId() : -1;
+            byTopic.computeIfAbsent(tid, k -> new ArrayList<>()).add(q);
+        }
 
-        String[] labels = { "A", "B", "C", "D" };
+        // Trong mỗi topic: sắp xếp theo độ khó ưu tiên, xáo trộn trong mỗi mức
+        Map<String, Integer> levelPriority = new HashMap<>();
+        // Mức có ratio cao nhất → ưu tiên chọn trước
+        levelPriority.put("EASY", ratios[0]);
+        levelPriority.put("MEDIUM", ratios[1]);
+        levelPriority.put("HARD", ratios[2]);
+
+        for (List<QuestionEntity> topicPool : byTopic.values()) {
+            Collections.shuffle(topicPool); // ngẫu nhiên trước
+            // Stable sort: đưa mức ưu tiên cao lên đầu
+            topicPool.sort((a, b) ->
+                levelPriority.getOrDefault(b.getLevel(), 0) -
+                levelPriority.getOrDefault(a.getLevel(), 0));
+        }
+
+        // ── Bước 3: Pure round-robin — lấy 1 câu/topic mỗi vòng ───────────
+        //   30 câu / 8 topics = vòng 1-3 lấy 8 câu (=24), vòng 4 lấy 6 câu (=30)
+        //   Kết quả: 6 topic × 4 câu + 2 topic × 3 câu → chênh đúng 1
+        List<List<QuestionEntity>> topicLists = new ArrayList<>(byTopic.values());
+        Collections.shuffle(topicLists); // ngẫu nhiên thứ tự topic
+        int[] cursors = new int[topicLists.size()];
+
+        List<QuestionEntity> selected = new ArrayList<>();
+        while (selected.size() < TOTAL_QUESTIONS) {
+            boolean added = false;
+            for (int t = 0; t < topicLists.size() && selected.size() < TOTAL_QUESTIONS; t++) {
+                if (cursors[t] < topicLists.get(t).size()) {
+                    selected.add(topicLists.get(t).get(cursors[t]++));
+                    added = true;
+                }
+            }
+            if (!added) break; // hết câu hỏi
+        }
+
+        Collections.shuffle(selected);
+
+        // ── Bước 5: Map sang DTO ─────────────────────────────────────────────
+        String[] labels = {"A", "B", "C", "D"};
         List<AssessmentQuestionsResponse.AssessmentQuestionDTO> dtos = new ArrayList<>();
 
-        for (int i = 0; i < all.size(); i++) {
-            QuestionEntity q = all.get(i);
+        for (int i = 0; i < selected.size(); i++) {
+            QuestionEntity q = selected.get(i);
             String topicName = q.getTopicId() != null
                     ? topicRepository.findById(q.getTopicId()).map(t -> t.getName()).orElse(null)
                     : null;
@@ -101,6 +141,7 @@ public class AssessmentService {
                     .content(q.getContent())
                     .level(FormatUtil.mapLevelToFe(q.getLevel()))
                     .topicName(topicName)
+                    .explanation(q.getExplanation())
                     .options(optionDTOs)
                     .build());
         }
@@ -114,20 +155,17 @@ public class AssessmentService {
                 .build();
     }
 
+    // fetchRandom giữ lại để tương thích compile — không còn được gọi từ main flow
+    @SuppressWarnings("unused")
     private List<QuestionEntity> fetchRandom(int subjectId, String level, int count) {
-        if (count <= 0)
-            return List.of();
-
-        List<QuestionEntity> pool = questionRepository.findAll((root, query, cb) -> {
+        if (count <= 0) return List.of();
+        List<QuestionEntity> pool = new ArrayList<>(questionRepository.findAll((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("subjectId"), subjectId));
             predicates.add(cb.equal(root.get("level"), level));
             return cb.and(predicates.toArray(new Predicate[0]));
-        });
-
-        if (pool.isEmpty())
-            return List.of();
-
+        }));
+        if (pool.isEmpty()) return List.of();
         Collections.shuffle(pool);
         return pool.subList(0, Math.min(count, pool.size()));
     }

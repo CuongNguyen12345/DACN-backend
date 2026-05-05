@@ -4,6 +4,7 @@ import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
 import com.cuong.backend.service.CourseService;
+import com.cuong.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,9 @@ public class CourseController {
 
     @Autowired
     private CourseService courseService;
+
+    @Autowired
+    private UserService userService;
 
     @GetMapping("/subjects")
     public List<com.cuong.backend.entity.SubjectEntity> getAllSubjects() {
@@ -46,5 +50,28 @@ public class CourseController {
     @GetMapping("/lesson/{id}")
     public LessonResponseDTO getLessonDetails(@PathVariable Integer id) {
         return courseService.getLessonById(id);
+    }
+
+    /**
+     * Lấy danh sách lesson_id đã hoàn thành của user hiện tại
+     * trong tập hợp lessonIds được truyền lên.
+     */
+    @GetMapping("/progress")
+    public List<Integer> getProgress(
+            @RequestHeader("Authorization") String token,
+            @RequestParam List<Integer> lessonIds) {
+        long userId = userService.getProfile(token).getId();
+        return courseService.getCompletedLessonIds(userId, lessonIds);
+    }
+
+    /**
+     * Đánh dấu bài học đã hoàn thành.
+     */
+    @PostMapping("/progress/complete")
+    public void markComplete(
+            @RequestHeader("Authorization") String token,
+            @RequestParam Integer lessonId) {
+        long userId = userService.getProfile(token).getId();
+        courseService.markLessonCompleted(userId, lessonId);
     }
 }

@@ -3,18 +3,22 @@ package com.cuong.backend.service;
 import com.cuong.backend.entity.ChapterEntity;
 import com.cuong.backend.entity.LessonEntity;
 import com.cuong.backend.entity.SubjectEntity;
+import com.cuong.backend.entity.UserProgressEntity;
 import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
 import com.cuong.backend.repository.ChapterRepository;
 import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.SubjectRepository;
+import com.cuong.backend.repository.UserProgressRepository;
 import jakarta.persistence.criteria.Predicate;
 
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,11 +28,16 @@ public class CourseService {
     private final SubjectRepository subjectRepository;
     private final ChapterRepository chapterRepository;
     private final LessonRepository lessonRepository;
+    private final UserProgressRepository userProgressRepository;
 
-    public CourseService(SubjectRepository subjectRepository, ChapterRepository chapterRepository, LessonRepository lessonRepository) {
+    public CourseService(SubjectRepository subjectRepository,
+                         ChapterRepository chapterRepository,
+                         LessonRepository lessonRepository,
+                         UserProgressRepository userProgressRepository) {
         this.subjectRepository = subjectRepository;
         this.chapterRepository = chapterRepository;
         this.lessonRepository = lessonRepository;
+        this.userProgressRepository = userProgressRepository;
     }
     
     public PageResponse<ChapterResponseDTO> getCourseData(String grade, String subjectName, String keyword, int page, int size) {
@@ -176,5 +185,36 @@ public class CourseService {
 
     public java.util.List<com.cuong.backend.entity.SubjectEntity> getAllSubjects() {
         return subjectRepository.findAll();
+    }
+
+    /**
+     * Lấy danh sách lesson_id đã hoàn thành của user
+     * trong tập hợp các lesson thuộc một khóa học.
+     */
+    public List<Integer> getCompletedLessonIds(long userId, List<Integer> lessonIds) {
+        if (lessonIds == null || lessonIds.isEmpty()) return List.of();
+        return userProgressRepository.findCompletedLessonIds(userId, lessonIds);
+    }
+
+    /**
+     * Đánh dấu bài học đã hoàn thành.
+     * Nếu bản ghi đã tồn tại thì chỉ cập nhật, không tạo mới.
+     */
+    @Transactional
+    public void markLessonCompleted(long userId, int lessonId) {
+        UserProgressEntity progress = userProgressRepository
+                .findByUserIdAndLessonId(userId, lessonId)
+                .orElseGet(() -> {
+                    UserProgressEntity p = new UserProgressEntity();
+                    p.setUserId(userId);
+                    p.setLessonId(lessonId);
+                    return p;
+                });
+
+        if (!progress.isCompleted()) {
+            progress.setCompleted(true);
+            progress.setCompletedAt(new Date());
+            userProgressRepository.save(progress);
+        }
     }
 }

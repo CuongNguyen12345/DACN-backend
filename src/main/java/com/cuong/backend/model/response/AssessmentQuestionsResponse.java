@@ -21,6 +21,7 @@ public class AssessmentQuestionsResponse {
         private String content;
         private String level;
         private String topicName;
+        private String explanation;
         private List<OptionDTO> options;
     }
 

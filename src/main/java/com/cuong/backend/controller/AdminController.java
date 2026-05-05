@@ -1,9 +1,8 @@
 package com.cuong.backend.controller;
 
-import com.cuong.backend.entity.SubjectEntity;
-import com.cuong.backend.entity.TopicEntity;
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
+import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
 import com.cuong.backend.model.response.AiChatResponse;
@@ -12,6 +11,7 @@ import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
+import com.cuong.backend.model.response.UserAccountDTO;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.service.AdminService;
 import com.cuong.backend.util.FormatUtil;
@@ -91,8 +91,7 @@ public class AdminController {
                 .stream()
                 .map(t -> Map.<String, Object>of(
                         "id", t.getId(),
-                        "name", t.getName()
-                ))
+                        "name", t.getName()))
                 .collect(Collectors.toList());
     }
 
@@ -114,6 +113,22 @@ public class AdminController {
     @GetMapping("/exams/{id}")
     public ExamDetailResponseDTO getExamById(@PathVariable Long id) {
         return adminService.getExamById(id);
+    }
+
+    // ---------- Teacher Account ----------
+
+    @PostMapping("/create-teacher")
+    public String createTeacher(@RequestBody CreateTeacherRequest request) {
+        return adminService.createTeacher(request);
+    }
+
+    // ---------- Account Management ----------
+
+    @GetMapping("/accounts")
+    public List<UserAccountDTO> searchAccounts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String role) {
+        return adminService.searchAccounts(keyword, role);
     }
 
 }

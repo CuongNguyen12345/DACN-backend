@@ -7,8 +7,10 @@ import com.cuong.backend.entity.QuestionEntity;
 import com.cuong.backend.entity.QuestionOptionEntity;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.entity.TopicEntity;
+import com.cuong.backend.entity.UserEntity;
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
+import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.response.CreateExamResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
@@ -19,10 +21,13 @@ import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.QuestionRepository;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.repository.TopicRepository;
+import com.cuong.backend.repository.UserRepository;
 import com.cuong.backend.util.FormatUtil;
 
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -38,17 +43,20 @@ public class AdminService {
     private final QuestionRepository questionRepository;
     private final ExamRepository examRepository;
     private final TopicRepository topicRepository;
+    private final UserRepository userRepository;
 
     public AdminService(@Qualifier("adminModel") ChatLanguageModel aiModel,
             SubjectRepository subjectRepository,
             QuestionRepository questionRepository,
             ExamRepository examRepository,
-            TopicRepository topicRepository) {
+            TopicRepository topicRepository,
+            UserRepository userRepository) {
         this.aiModel = aiModel;
         this.subjectRepository = subjectRepository;
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
         this.topicRepository = topicRepository;
+        this.userRepository = userRepository;
     }
 
     public String generateQuiz(String lessonContent) {
@@ -476,5 +484,70 @@ public class AdminService {
 
     public void incrementAttemptCount(Long id) {
         examRepository.incrementAttemptCount(id);
+    }
+
+    // ---------- Teacher Account ----------
+
+    @Transactional
+    public String createTeacher(CreateTeacherRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email đã tồn tại trong hệ thống: " + request.getEmail());
+        }
+        if (request.getGrades() == null || request.getGrades().isEmpty()) {
+            throw new RuntimeException("Vui lòng chọn ít nhất một lớp để phân công.");
+        }
+
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+
+        String gradesStr = request.getGrades().stream()
+                .map(g -> g.replace("Lớp ", "").trim())
+                .collect(java.util.stream.Collectors.joining(","));
+
+        UserEntity teacher = new UserEntity();
+        teacher.setUserName(request.getName());
+        teacher.setEmail(request.getEmail());
+        teacher.setPassword(passwordEncoder.encode(request.getPassword()));
+        teacher.setRole("TEACHER");
+        teacher.setSchoolName(FormatUtil.mapSubjectToDb(request.getSubject()));
+        teacher.setGrade(gradesStr);
+
+        userRepository.save(teacher);
+        return "Tạo tài khoản giáo viên thành công: " + request.getEmail();
+    }
+
+    // ---------- Account Search ----------
+
+    public List<com.cuong.backend.model.response.UserAccountDTO> searchAccounts(String keyword, String role) {
+        List<UserEntity> users = userRepository.searchUsers(keyword, role);
+        return users.stream()
+                .filter(u -> !u.getRole().equalsIgnoreCase("ADMIN"))
+                .map(u -> {
+                    String unit;
+                    if (u.getRole().equalsIgnoreCase("TEACHER")) {
+                        // Giáo viên: hiển thị môn học + lớp phân công
+                        String subject = FormatUtil.mapSubjectToFe(u.getSchoolName());
+                        String grades = u.getGrade() != null ? " (Lớp " + u.getGrade() + ")" : "";
+                        unit = "Tổ " + (subject != null ? subject : u.getSchoolName()) + grades;
+                    } else {
+                        // Học viên: hiển thị khối học
+                        String grade = u.getGrade();
+                        if (grade != null && !grade.isBlank()) {
+                            // Xử lý trường hợp grade có thể là "10" hoặc "Lớp 10"
+                            String gradeNum = grade.replace("Lớp ", "").trim();
+                            unit = "Học sinh khối " + gradeNum;
+                        } else {
+                            unit = "Chưa cập nhật khối học";
+                        }
+                    }
+                    return com.cuong.backend.model.response.UserAccountDTO.builder()
+                            .id(u.getId())
+                            .userName(u.getUserName())
+                            .email(u.getEmail())
+                            .role(u.getRole())
+                            .unit(unit)
+                            .createdDate(u.getCreatedDate())
+                            .build();
+                })
+                .collect(java.util.stream.Collectors.toList());
     }
 }
