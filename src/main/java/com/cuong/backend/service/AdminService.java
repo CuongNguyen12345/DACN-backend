@@ -298,12 +298,13 @@ public class AdminService {
         return "Lưu thành công " + entitiesToSave.size() + " câu hỏi.";
     }
 
-    public List<QuestionResponseDTO> getAllQuestions(String keyword, String subject, String level, String grade) {
+    public List<QuestionResponseDTO> getAllQuestions(String keyword, String subject, String level, String grade, String topicName) {
         List<QuestionEntity> entities;
         if ((keyword == null || keyword.isEmpty()) &&
                 (subject == null || "all".equals(subject)) &&
                 (level == null || "all".equals(level)) &&
-                (grade == null || "all".equals(grade))) {
+                (grade == null || "all".equals(grade)) &&
+                (topicName == null || "all".equals(topicName))) {
             entities = questionRepository.findAll();
         } else {
             entities = questionRepository.findAll((root, query, cb) -> {
@@ -337,6 +338,16 @@ public class AdminService {
                     predicates.add(cb.in(root.get("subjectId")).value(subQuery));
                 }
 
+                if (topicName != null && !"all".equals(topicName)) {
+                    var topicSubQuery = query.subquery(Integer.class);
+                    var topicSubRoot = topicSubQuery.from(TopicEntity.class);
+                    topicSubQuery.select(topicSubRoot.get("id"));
+
+                    topicSubQuery.where(cb.equal(topicSubRoot.get("name"), topicName.trim()));
+
+                    predicates.add(cb.in(root.get("topicId")).value(topicSubQuery));
+                }
+
                 return cb.and(predicates.toArray(new Predicate[0]));
             });
         }
@@ -355,7 +366,7 @@ public class AdminService {
             }
 
             String levelName = FormatUtil.mapLevelToFe(q.getLevel());
-            String topicName = resolveTopicName(q.getTopicId());
+            String resolvedTopicName = resolveTopicName(q.getTopicId());
 
             result.add(QuestionResponseDTO.builder()
                     .id("Q-" + q.getId())
@@ -364,7 +375,7 @@ public class AdminService {
                     .level(levelName)
                     .type("Trắc nghiệm")
                     .status(statusName)
-                    .topicName(topicName)
+                    .topicName(resolvedTopicName)
                     .createdAt(q.getCreatedAt())
                     .build());
         }

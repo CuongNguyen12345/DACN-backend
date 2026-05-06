@@ -74,4 +74,28 @@ public class CourseController {
         long userId = userService.getProfile(token).getId();
         courseService.markLessonCompleted(userId, lessonId);
     }
+
+    /**
+     * Lưu thời gian đang xem video của bài học.
+     */
+    @PostMapping("/progress/time")
+    public void saveWatchTime(
+            @RequestHeader("Authorization") String token,
+            @RequestParam Integer lessonId,
+            @RequestParam Integer time) {
+        long userId = userService.getProfile(token).getId();
+        courseService.saveWatchTime(userId, lessonId, time);
+    }
+
+    /**
+     * Lấy thời gian đã xem của bài học.
+     */
+    @GetMapping("/progress/time")
+    public Integer getWatchTime(
+            @RequestHeader("Authorization") String token,
+            @RequestParam Integer lessonId) {
+        long userId = userService.getProfile(token).getId();
+        Integer time = courseService.getLastWatchedTime(userId, lessonId);
+        return time != null ? time : 0;
+    }
 }

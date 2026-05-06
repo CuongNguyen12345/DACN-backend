@@ -31,6 +31,9 @@ public class UserProgressEntity {
     @Column(name = "is_completed")
     boolean isCompleted;
 
+    @Column(name = "last_watched_time")
+    Integer lastWatchedTime;
+
     @Column(name = "completed_at")
     @CreatedDate
     Date completedAt;

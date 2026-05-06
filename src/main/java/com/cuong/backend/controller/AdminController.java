@@ -52,8 +52,9 @@ public class AdminController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String subject,
             @RequestParam(required = false) String level,
-            @RequestParam(required = false) String grade) {
-        return adminService.getAllQuestions(keyword, subject, level, grade);
+            @RequestParam(required = false) String grade,
+            @RequestParam(required = false) String topicName) {
+        return adminService.getAllQuestions(keyword, subject, level, grade, topicName);
     }
 
     @GetMapping("/questions/{id}")

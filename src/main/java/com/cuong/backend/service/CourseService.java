@@ -217,4 +217,25 @@ public class CourseService {
             userProgressRepository.save(progress);
         }
     }
+
+    @Transactional
+    public void saveWatchTime(long userId, int lessonId, int time) {
+        UserProgressEntity progress = userProgressRepository
+                .findByUserIdAndLessonId(userId, lessonId)
+                .orElseGet(() -> {
+                    UserProgressEntity p = new UserProgressEntity();
+                    p.setUserId(userId);
+                    p.setLessonId(lessonId);
+                    return p;
+                });
+        
+        progress.setLastWatchedTime(time);
+        userProgressRepository.save(progress);
+    }
+
+    public Integer getLastWatchedTime(long userId, int lessonId) {
+        return userProgressRepository.findByUserIdAndLessonId(userId, lessonId)
+                .map(UserProgressEntity::getLastWatchedTime)
+                .orElse(0);
+    }
 }
