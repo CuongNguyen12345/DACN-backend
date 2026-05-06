@@ -10,4 +10,5 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AiChatRequest {
     String message;
+    String base64Image;
 }

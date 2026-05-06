@@ -13,6 +13,10 @@ import com.cuong.backend.entity.UserEntity;
 import com.cuong.backend.entity.TopicMasteryEntity;
 import com.cuong.backend.entity.UserProgressEntity;
 
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.ImageContent;
+import dev.langchain4j.data.message.TextContent;
+
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
@@ -76,7 +80,23 @@ public class AdminService {
         this.topicMasteryRepository = topicMasteryRepository;
     }
 
-    public String generateQuiz(String lessonContent) {
+    public String generateQuiz(String lessonContent, String base64Image) {
+        if (base64Image != null && !base64Image.isEmpty()) {
+            String base64Data = base64Image;
+            String mimeType = "image/png";
+            if (base64Image.startsWith("data:")) {
+                int commaIndex = base64Image.indexOf(",");
+                if (commaIndex > 0) {
+                    mimeType = base64Image.substring(5, base64Image.indexOf(";"));
+                    base64Data = base64Image.substring(commaIndex + 1);
+                }
+            }
+            UserMessage userMessage = UserMessage.from(
+                TextContent.from(lessonContent),
+                ImageContent.from(base64Data, mimeType)
+            );
+            return aiModel.generate(userMessage).content().text();
+        }
         return aiModel.generate(lessonContent);
     }
 

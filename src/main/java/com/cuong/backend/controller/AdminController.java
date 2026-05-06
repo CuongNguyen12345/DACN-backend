@@ -36,7 +36,7 @@ public class AdminController {
 
     @PostMapping("/ai/generate-questions")
     public AiChatResponse generateQuestions(@RequestBody AiChatRequest request) {
-        String result = adminService.generateQuiz(request.getMessage());
+        String result = adminService.generateQuiz(request.getMessage(), request.getBase64Image());
         return AiChatResponse.builder()
                 .result(result)
                 .build();
