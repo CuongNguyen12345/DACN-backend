@@ -140,6 +140,7 @@ public class AssessmentService {
                     .orderNumber(i + 1)
                     .content(q.getContent())
                     .level(FormatUtil.mapLevelToFe(q.getLevel()))
+                    .topicId(q.getTopicId())
                     .topicName(topicName)
                     .explanation(q.getExplanation())
                     .options(optionDTOs)

@@ -20,6 +20,7 @@ public class AssessmentQuestionsResponse {
         private int orderNumber;
         private String content;
         private String level;
+        private Integer topicId;
         private String topicName;
         private String explanation;
         private List<OptionDTO> options;

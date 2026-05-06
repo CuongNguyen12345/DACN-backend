@@ -1,5 +1,7 @@
 package com.cuong.backend.service;
 
+import java.text.Normalizer;
+
 import com.cuong.backend.entity.ExamEntity;
 import com.cuong.backend.entity.ExamQuestionItemEntity;
 import com.cuong.backend.entity.ExamQuestionItemId;
@@ -8,20 +10,29 @@ import com.cuong.backend.entity.QuestionOptionEntity;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.entity.TopicEntity;
 import com.cuong.backend.entity.UserEntity;
+import com.cuong.backend.entity.TopicMasteryEntity;
+import com.cuong.backend.entity.UserProgressEntity;
+
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
+
 import com.cuong.backend.model.response.CreateExamResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
+
 import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.QuestionRepository;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.repository.TopicRepository;
 import com.cuong.backend.repository.UserRepository;
+import com.cuong.backend.repository.UserProgressRepository;
+import com.cuong.backend.repository.TopicMasteryRepository;
+
+import com.cuong.backend.model.response.AccountDetailDTO;
 import com.cuong.backend.util.FormatUtil;
 
 import jakarta.persistence.criteria.Predicate;
@@ -44,19 +55,25 @@ public class AdminService {
     private final ExamRepository examRepository;
     private final TopicRepository topicRepository;
     private final UserRepository userRepository;
+    private final UserProgressRepository userProgressRepository;
+    private final TopicMasteryRepository topicMasteryRepository;
 
     public AdminService(@Qualifier("adminModel") ChatLanguageModel aiModel,
             SubjectRepository subjectRepository,
             QuestionRepository questionRepository,
             ExamRepository examRepository,
             TopicRepository topicRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            UserProgressRepository userProgressRepository,
+            TopicMasteryRepository topicMasteryRepository) {
         this.aiModel = aiModel;
         this.subjectRepository = subjectRepository;
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
         this.topicRepository = topicRepository;
         this.userRepository = userRepository;
+        this.userProgressRepository = userProgressRepository;
+        this.topicMasteryRepository = topicMasteryRepository;
     }
 
     public String generateQuiz(String lessonContent) {
@@ -70,20 +87,138 @@ public class AdminService {
      * If topic doesn't exist, create it automatically.
      */
     private Integer resolveTopicId(String topicName, int subjectId) {
-        if (topicName == null || topicName.isBlank()) return null;
+        return resolveTopicId(topicName, subjectId, null);
+    }
+
+    /**
+     * Resolve topic by name within a subject, with optional content-based
+     * validation.
+     * Priority: exact match → content-based match → fuzzy name match → create new.
+     */
+    private Integer resolveTopicId(String topicName, int subjectId, String questionContent) {
+        if (topicName == null || topicName.isBlank()) {
+            // No topic name provided — try content-based detection
+            if (questionContent != null && !questionContent.isBlank()) {
+                Integer contentId = findTopicByContent(questionContent, subjectId);
+                if (contentId != null)
+                    return contentId;
+            }
+            return null;
+        }
         String trimmedName = topicName.trim();
-        return topicRepository.findByNameAndSubjectId(trimmedName, subjectId)
-                .map(TopicEntity::getId)
-                .orElseGet(() -> {
-                    TopicEntity newTopic = new TopicEntity();
-                    newTopic.setSubjectId(subjectId);
-                    newTopic.setName(trimmedName);
-                    return topicRepository.save(newTopic).getId();
-                });
+
+        // 1. Exact match — trust it, no override
+        var exactMatch = topicRepository.findByNameAndSubjectId(trimmedName, subjectId);
+        if (exactMatch.isPresent()) {
+            return exactMatch.get().getId();
+        }
+
+        // 2. Fuzzy name match
+        Integer similarId = findSimilarTopicId(trimmedName, subjectId);
+        if (similarId != null)
+            return similarId;
+
+        // 3. Content-based match (chỉ dùng khi không match được tên)
+        if (questionContent != null && !questionContent.isBlank()) {
+            Integer contentId = findTopicByContent(questionContent, subjectId);
+            if (contentId != null)
+                return contentId;
+        }
+
+        // 4. Create new topic
+        TopicEntity newTopic = new TopicEntity();
+        newTopic.setSubjectId(subjectId);
+        newTopic.setName(trimmedName);
+        return topicRepository.save(newTopic).getId();
+    }
+
+    /**
+     * Analyze question content to find the best matching topic.
+     * Checks if significant keywords from topic names appear in the question text.
+     */
+    private Integer findTopicByContent(String content, int subjectId) {
+        String normalizedContent = normalize(content);
+        List<TopicEntity> candidates = topicRepository.findBySubjectId(subjectId);
+        int bestScore = 0;
+        Integer bestId = null;
+
+        for (TopicEntity t : candidates) {
+            String normalizedTopicName = normalize(t.getName());
+            java.util.Set<String> topicKeywords = extractKeywords(normalizedTopicName);
+
+            int score = 0;
+            for (String keyword : topicKeywords) {
+                if (normalizedContent.contains(keyword)) {
+                    score++;
+                }
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                bestId = t.getId();
+            }
+        }
+        // Require at least 2 keyword matches, or 1 if topic has only 1 keyword
+        if (bestId != null && bestScore >= 1) {
+            return bestId;
+        }
+        return null;
+    }
+
+    private static final java.util.Set<String> STOP_WORDS = java.util.Set.of(
+            "va", "cac", "cua", "trong", "cho", "theo", "den", "tu", "la", "co", "mot", "nhung", "voi");
+
+    private java.util.Set<String> extractKeywords(String normalizedStr) {
+        return java.util.Arrays.stream(normalizedStr.split("\\s+"))
+                .filter(s -> !s.isEmpty() && s.length() > 1 && !STOP_WORDS.contains(s))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * Find a topic with a name similar to the given one within the same subject.
+     * Uses keyword overlap after normalizing and filtering stop words.
+     */
+    private Integer findSimilarTopicId(String topicName, int subjectId) {
+        java.util.Set<String> targetKeywords = extractKeywords(normalize(topicName));
+        if (targetKeywords.isEmpty())
+            return null;
+
+        List<TopicEntity> candidates = topicRepository.findBySubjectId(subjectId);
+        int bestScore = 0;
+        Integer bestId = null;
+
+        for (TopicEntity t : candidates) {
+            java.util.Set<String> candKeywords = extractKeywords(normalize(t.getName()));
+            java.util.Set<String> intersection = new java.util.HashSet<>(targetKeywords);
+            intersection.retainAll(candKeywords);
+            int score = intersection.size();
+            if (score > bestScore) {
+                bestScore = score;
+                bestId = t.getId();
+            }
+        }
+
+        // Require significant overlap: at least 50% of the smaller keyword set
+        if (bestScore > 0 && bestId != null) {
+            java.util.Set<String> bestKeywords = extractKeywords(normalize(
+                    topicRepository.findById(bestId).map(TopicEntity::getName).orElse("")));
+            int minSize = Math.min(targetKeywords.size(), bestKeywords.size());
+            if (minSize > 0 && bestScore >= Math.max(1, (minSize + 1) / 2)) {
+                return bestId;
+            }
+        }
+        return null;
+    }
+
+    private String normalize(String str) {
+        if (str == null)
+            return "";
+        String normalized = Normalizer.normalize(str, Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}", "").toLowerCase();
     }
 
     private String resolveTopicName(Integer topicId) {
-        if (topicId == null) return null;
+        if (topicId == null)
+            return null;
         return topicRepository.findById(topicId)
                 .map(TopicEntity::getName)
                 .orElse(null);
@@ -91,6 +226,32 @@ public class AdminService {
 
     public List<TopicEntity> getTopicsBySubjectId(int subjectId) {
         return topicRepository.findBySubjectId(subjectId);
+    }
+
+    /**
+     * Migration: re-process all existing questions and fix their topic assignments
+     * using content-based matching.
+     */
+    @Transactional
+    public String migrateQuestionTopics() {
+        List<QuestionEntity> allQuestions = questionRepository.findAll();
+        int fixedCount = 0;
+
+        for (QuestionEntity q : allQuestions) {
+            if (q.getContent() == null || q.getContent().isBlank())
+                continue;
+
+            Integer newTopicId = findTopicByContent(q.getContent(), q.getSubjectId());
+            if (newTopicId != null && !newTopicId.equals(q.getTopicId())) {
+                q.setTopicId(newTopicId);
+                fixedCount++;
+            }
+        }
+
+        if (fixedCount > 0) {
+            questionRepository.saveAll(allQuestions);
+        }
+        return "Đã cập nhật topic cho " + fixedCount + "/" + allQuestions.size() + " câu hỏi.";
     }
 
     // ---------- Question CRUD ----------
@@ -117,8 +278,8 @@ public class AdminService {
             String level = FormatUtil.mapLevelToDb(q.getLevel());
             questionEntity.setLevel(level);
 
-            // Resolve topic
-            Integer topicId = resolveTopicId(q.getTopicName(), subject.getId());
+            // Resolve topic (with content-based matching)
+            Integer topicId = resolveTopicId(q.getTopicName(), subject.getId(), q.getContent());
             questionEntity.setTopicId(topicId);
 
             List<QuestionOptionEntity> optionEntities = new ArrayList<>();
@@ -278,8 +439,8 @@ public class AdminService {
                             "Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
             questionEntity.setSubjectId(subject.getId());
 
-            // Resolve topic
-            Integer topicId = resolveTopicId(request.getTopicName(), subject.getId());
+            // Resolve topic (with content-based matching)
+            Integer topicId = resolveTopicId(request.getTopicName(), subject.getId(), request.getContent());
             questionEntity.setTopicId(topicId);
         }
 
@@ -332,7 +493,8 @@ public class AdminService {
         final String finalGrade = grade;
         int subjectId = subjectRepository.findByNameAndGrade(finalSubjectName, finalGrade)
                 .map(SubjectEntity::getId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
 
         ExamEntity exam = new ExamEntity();
         exam.setTitle(request.getTitle());
@@ -348,7 +510,8 @@ public class AdminService {
                 try {
                     String cleaned = raw.startsWith("Q-") ? raw.substring(2) : raw;
                     numericIds.add(Long.parseLong(cleaned));
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
         }
 
@@ -441,7 +604,7 @@ public class AdminService {
             subjectName = FormatUtil.mapSubjectToFe(sOpt.get().getName());
         }
 
-        String[] letters = {"A", "B", "C", "D", "E", "F"};
+        String[] letters = { "A", "B", "C", "D", "E", "F" };
 
         List<ExamDetailResponseDTO.QuestionItem> questionItems = exam.getQuestionItems().stream()
                 .sorted((a, b) -> Integer.compare(a.getOrderNumber(), b.getOrderNumber()))
@@ -513,6 +676,70 @@ public class AdminService {
 
         userRepository.save(teacher);
         return "Tạo tài khoản giáo viên thành công: " + request.getEmail();
+    }
+
+    // ---------- Account Detail ----------
+
+    public AccountDetailDTO getAccountDetail(Long id) {
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản ID: " + id));
+
+        boolean isTeacher = user.getRole().equalsIgnoreCase("TEACHER");
+
+        // Build unit string
+        String unit;
+        if (isTeacher) {
+            String subject = FormatUtil.mapSubjectToFe(user.getSchoolName());
+            String grades = user.getGrade() != null ? " (Lớp " + user.getGrade() + ")" : "";
+            unit = "Tổ " + (subject != null ? subject : user.getSchoolName()) + grades;
+        } else {
+            String grade = user.getGrade();
+            if (grade != null && !grade.isBlank()) {
+                String gradeNum = grade.replace("Lớp ", "").trim();
+                unit = "Học sinh khối " + gradeNum;
+            } else {
+                unit = "Chưa cập nhật";
+            }
+        }
+
+        // Calculate stats
+        List<UserProgressEntity> progressList = userProgressRepository.findAll()
+                .stream().filter(p -> p.getUserId() == user.getId() && p.isCompleted())
+                .collect(java.util.stream.Collectors.toList());
+        int completedLessons = progressList.size();
+
+        List<TopicMasteryEntity> masteryList = topicMasteryRepository.findByUserId(user.getId());
+        double avgScore = 0;
+        if (!masteryList.isEmpty()) {
+            avgScore = masteryList.stream()
+                    .mapToDouble(TopicMasteryEntity::getMasteryScore)
+                    .average().orElse(0);
+            avgScore = Math.round(avgScore * 100.0) / 10.0; // Convert to 10-scale
+        }
+
+        // Count exams from exam entity (teacher: created, student: attempted)
+        int totalExams;
+        if (isTeacher) {
+            totalExams = (int) examRepository.count();
+        } else {
+            totalExams = masteryList.size();
+        }
+
+        return AccountDetailDTO.builder()
+                .id(user.getId())
+                .userName(user.getUserName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .unit(unit)
+                .phoneNumber(user.getPhoneNumber())
+                .grade(user.getGrade())
+                .status("Hoạt động")
+                .createdDate(user.getCreatedDate())
+                .totalExams(totalExams)
+                .avgScore(avgScore)
+                .completedLessons(completedLessons)
+                .examRecords(List.of())
+                .build();
     }
 
     // ---------- Account Search ----------

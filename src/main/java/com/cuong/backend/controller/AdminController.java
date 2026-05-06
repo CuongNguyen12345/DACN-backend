@@ -95,6 +95,11 @@ public class AdminController {
                 .collect(Collectors.toList());
     }
 
+    @PostMapping("/topics/migrate")
+    public String migrateTopics() {
+        return adminService.migrateQuestionTopics();
+    }
+
     // ---------- Exams ----------
 
     @PostMapping("/exams")
@@ -129,6 +134,10 @@ public class AdminController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String role) {
         return adminService.searchAccounts(keyword, role);
+    }
+    @GetMapping("/accounts/{id}")
+    public com.cuong.backend.model.response.AccountDetailDTO getAccountDetail(@PathVariable Long id) {
+        return adminService.getAccountDetail(id);
     }
 
 }
