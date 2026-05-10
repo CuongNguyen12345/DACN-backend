@@ -17,6 +17,7 @@ public class LessonResponseDTO {
     private String pdfUrl;
     private String content;
     // Admin search fields
+    private int chapterId;
     private String chapterName;
     private String subject;
     private String grade;

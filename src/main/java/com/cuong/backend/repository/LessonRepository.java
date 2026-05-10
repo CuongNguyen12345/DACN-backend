@@ -12,24 +12,19 @@ import java.util.List;
 @Repository
 public interface LessonRepository extends JpaRepository<LessonEntity, Integer>, JpaSpecificationExecutor<LessonEntity> {
 
-    List<LessonEntity> findByChapterId(int chapterId);
+        List<LessonEntity> findByChapterId(int chapterId);
 
-    /**
-     * Tìm kiếm bài học theo keyword (tên bài), subject name và grade.
-     * Join qua bảng chapters để lấy subject_id, sau đó join subjects.
-     */
-    @Query("""
-            SELECT l FROM LessonEntity l
-            JOIN ChapterEntity c ON l.chapterId = c.id
-            JOIN SubjectEntity s ON c.subjectId = s.id
-            WHERE (:keyword IS NULL OR LOWER(l.lessonName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-              AND (:subjectName IS NULL OR s.name = :subjectName)
-              AND (:grade IS NULL OR s.grade = :grade)
-            ORDER BY s.grade ASC, s.name ASC, c.orderNumber ASC, l.id ASC
-            """)
-    List<LessonEntity> searchLessons(
-            @Param("keyword") String keyword,
-            @Param("subjectName") String subjectName,
-            @Param("grade") String grade);
+        @Query("""
+                        SELECT l FROM LessonEntity l
+                        JOIN ChapterEntity c ON l.chapterId = c.id
+                        JOIN SubjectEntity s ON c.subjectId = s.id
+                        WHERE (:keyword IS NULL OR LOWER(l.lessonName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                          AND (:subjectName IS NULL OR s.name = :subjectName)
+                          AND (:grade IS NULL OR s.grade = :grade)
+                        ORDER BY s.grade ASC, s.name ASC, c.orderNumber ASC, l.id ASC
+                        """)
+        List<LessonEntity> searchLessons(
+                        @Param("keyword") String keyword,
+                        @Param("subjectName") String subjectName,
+                        @Param("grade") String grade);
 }
-

@@ -2,7 +2,9 @@ package com.cuong.backend.controller;
 
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
+import com.cuong.backend.model.request.CreateChapterRequest;
 import com.cuong.backend.model.request.CreateLessonRequest;
+import com.cuong.backend.entity.ChapterEntity;
 import com.cuong.backend.model.request.UpdateLessonRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
@@ -17,7 +19,7 @@ import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.service.AdminService;
 
 import org.springframework.http.MediaType;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -89,17 +91,18 @@ public class AdminController {
         return adminService.getExamById(id);
     }
 
-    /**
-     * Tìm kiếm bài học (Admin).
-     *
-     * GET /api/admin/lessons
-     * Query params (tất cả optional):
-     *   - keyword : từ khóa tìm trong tên bài học
-     *   - subject : tên môn (“Toán”, “Lý”, “Hóa”, “Anh”, “all”...)
-     *   - grade   : lớp (“Lớp 10”, “10”, “all”...)
-     *
-     * Response: danh sách LessonResponseDTO
-     */
+    @GetMapping("/chapters")
+    public List<ChapterEntity> getChapters(
+            @RequestParam String subject,
+            @RequestParam String grade) {
+        return adminService.getChapters(subject, grade);
+    }
+
+    @PostMapping("/chapters")
+    public ChapterEntity createChapter(@RequestBody CreateChapterRequest request) {
+        return adminService.createChapter(request);
+    }
+
     @GetMapping("/lessons")
     public List<LessonResponseDTO> getAllLessons(
             @RequestParam(required = false) String keyword,
@@ -108,31 +111,11 @@ public class AdminController {
         return adminService.getAllLessons(keyword, subject, grade);
     }
 
-    /**
-     * Thêm bài học mới — Admin cung cấp URL video/PDF đã có sẵn.
-     *
-     * POST /api/admin/lessons
-     * Content-Type: application/json
-     * Body: { "chapterId": 1, "lessonName": "...", "content": "...",
-     *         "videoUrl": "https://...", "pdfUrl": "https://..." }
-     */
     @PostMapping("/lessons")
     public CreateLessonResponse createLesson(@RequestBody CreateLessonRequest request) {
         return adminService.createLesson(request);
     }
 
-    /**
-     * Thêm bài học mới — Admin upload file video/PDF trực tiếp.
-     *
-     * POST /api/admin/lessons/upload
-     * Content-Type: multipart/form-data
-     * Form fields:
-     *   - chapterId   (int, bắt buộc)
-     *   - lessonName  (String, bắt buộc)
-     *   - content     (String, optional)
-     *   - videoFile   (MultipartFile, optional) — mp4/webm/ogg, tối đa 500 MB
-     *   - pdfFile     (MultipartFile, optional) — PDF, tối đa 50 MB
-     */
     @PostMapping(value = "/lessons/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CreateLessonResponse createLessonWithUpload(
             @RequestParam int chapterId,
@@ -143,15 +126,10 @@ public class AdminController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) MultipartFile videoFile,
             @RequestParam(required = false) MultipartFile pdfFile) throws IOException {
-        return adminService.createLessonWithUpload(chapterId, lessonName, content, duration, status, type, videoFile, pdfFile);
+        return adminService.createLessonWithUpload(chapterId, lessonName, content, duration, status, type, videoFile,
+                pdfFile);
     }
 
-    /**
-     * Sửa bài học — Admin cung cấp URL video/PDF đã có sẵn.
-     *
-     * PUT /api/admin/lessons/{id}
-     * Content-Type: application/json
-     */
     @PutMapping("/lessons/{id}")
     public CreateLessonResponse updateLesson(
             @PathVariable Integer id,
@@ -159,13 +137,6 @@ public class AdminController {
         return adminService.updateLesson(id, request);
     }
 
-    /**
-     * Sửa bài học — Admin upload file video/PDF.
-     * Nếu không truyền file thì giữ nguyên file cũ.
-     *
-     * PUT /api/admin/lessons/{id}/upload
-     * Content-Type: multipart/form-data
-     */
     @PutMapping(value = "/lessons/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CreateLessonResponse updateLessonWithUpload(
             @PathVariable Integer id,
@@ -177,17 +148,18 @@ public class AdminController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) MultipartFile videoFile,
             @RequestParam(required = false) MultipartFile pdfFile) throws IOException {
-        return adminService.updateLessonWithUpload(id, chapterId, lessonName, content, duration, status, type, videoFile, pdfFile);
+        return adminService.updateLessonWithUpload(id, chapterId, lessonName, content, duration, status, type,
+                videoFile, pdfFile);
     }
 
-    /**
-     * Xóa bài học (Admin).
-     *
-     * DELETE /api/admin/lessons/{id}
-     */
     @DeleteMapping("/lessons/{id}")
     public String deleteLesson(@PathVariable Integer id) {
         return adminService.deleteLesson(id);
+    }
+
+    @GetMapping("/lessons/{id}")
+    public LessonResponseDTO getLessonById(@PathVariable Integer id) {
+        return adminService.getLessonById(id);
     }
 
 }

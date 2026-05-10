@@ -12,7 +12,7 @@ import com.cuong.backend.model.request.VerifyOTPRequest;
 import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.repository.UserRepository;
 import com.cuong.backend.util.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @Service
 public class UserService {
-    
+
     private final UserRepository repository;
     private final JwtUtil jwtUtil;
     private final JavaMailSender mailSender;

@@ -10,6 +10,7 @@ import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.CreateLessonRequest;
+import com.cuong.backend.model.request.CreateChapterRequest;
 import com.cuong.backend.model.request.UpdateLessonRequest;
 import com.cuong.backend.model.response.CreateExamResponse;
 import com.cuong.backend.model.response.CreateLessonResponse;
@@ -25,7 +26,7 @@ import com.cuong.backend.repository.QuestionRepository;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.ChapterRepository;
-import com.cuong.backend.service.FileStorageService;
+
 import com.cuong.backend.util.FormatUtil;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
@@ -265,8 +266,6 @@ public class AdminService {
             questionEntity.setLevel(level);
         }
 
-        // Cập nhật Options: Tận dụng orphanRemoval = true
-        // Xóa tất cả options cũ bằng cách clear collection
         if (questionEntity.getOptions() != null) {
             questionEntity.getOptions().clear();
         } else {
@@ -309,7 +308,8 @@ public class AdminService {
         final String finalGrade = grade;
         int subjectId = subjectRepository.findByNameAndGrade(finalSubjectName, finalGrade)
                 .map(SubjectEntity::getId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
 
         ExamEntity exam = new ExamEntity();
         exam.setTitle(request.getTitle());
@@ -326,7 +326,8 @@ public class AdminService {
                 try {
                     String cleaned = raw.startsWith("Q-") ? raw.substring(2) : raw;
                     numericIds.add(Long.parseLong(cleaned));
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
         }
 
@@ -392,7 +393,7 @@ public class AdminService {
         }
 
         return entities.stream().map(exam -> {
-            // Map subjectId -> ten mon FE
+
             String subjectName = "Khác";
             String gradeName = "Chưa rõ";
             var sOpt = subjectRepository.findById(exam.getSubjectId());
@@ -414,19 +415,23 @@ public class AdminService {
 
     public ExamDetailResponseDTO getExamById(Long id) {
         ExamEntity exam = examRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Kh\u00f4ng t\u00ecm th\u1ea5y đ\u1ec1 thi v\u1edbi ID: " + id));
+                .orElseThrow(
+                        () -> new RuntimeException("Kh\u00f4ng t\u00ecm th\u1ea5y đ\u1ec1 thi v\u1edbi ID: " + id));
 
         // Map subject
         String subjectName = "Kh\u00e1c";
         var sOpt = subjectRepository.findById(exam.getSubjectId());
         if (sOpt.isPresent()) {
             subjectName = sOpt.get().getName();
-            if ("L\u00fd".equals(subjectName)) subjectName = "V\u1eadt L\u00fd";
-            else if ("H\u00f3a".equals(subjectName)) subjectName = "H\u00f3a H\u1ecdc";
-            else if ("Anh".equals(subjectName)) subjectName = "Ti\u1ebfng Anh";
+            if ("L\u00fd".equals(subjectName))
+                subjectName = "V\u1eadt L\u00fd";
+            else if ("H\u00f3a".equals(subjectName))
+                subjectName = "H\u00f3a H\u1ecdc";
+            else if ("Anh".equals(subjectName))
+                subjectName = "Ti\u1ebfng Anh";
         }
 
-        String[] letters = {"A", "B", "C", "D", "E", "F"};
+        String[] letters = { "A", "B", "C", "D", "E", "F" };
 
         List<ExamDetailResponseDTO.QuestionItem> questionItems = exam.getQuestionItems().stream()
                 .sorted((a, b) -> Integer.compare(a.getOrderNumber(), b.getOrderNumber()))
@@ -434,8 +439,10 @@ public class AdminService {
                     QuestionEntity q = item.getQuestion();
 
                     String levelName = "D\u1ec5";
-                    if ("MEDIUM".equals(q.getLevel())) levelName = "Trung b\u00ecnh";
-                    else if ("HARD".equals(q.getLevel())) levelName = "Kh\u00f3";
+                    if ("MEDIUM".equals(q.getLevel()))
+                        levelName = "Trung b\u00ecnh";
+                    else if ("HARD".equals(q.getLevel()))
+                        levelName = "Kh\u00f3";
 
                     List<ExamDetailResponseDTO.OptionItem> options = new ArrayList<>();
                     if (q.getOptions() != null) {
@@ -468,11 +475,10 @@ public class AdminService {
                 .questions(questionItems)
                 .build();
     }
+
     public void incrementAttemptCount(Long id) {
         examRepository.incrementAttemptCount(id);
     }
-
-    // ===================== LESSON CREATE (ADMIN) =====================
 
     @Transactional
     public CreateLessonResponse createLesson(CreateLessonRequest request) {
@@ -523,7 +529,8 @@ public class AdminService {
             throw new IllegalArgumentException("Tên bài học không được để trống.");
         }
 
-        String videoUrl = (videoFile != null && !videoFile.isEmpty()) ? fileStorageService.uploadVideo(videoFile) : null;
+        String videoUrl = (videoFile != null && !videoFile.isEmpty()) ? fileStorageService.uploadVideo(videoFile)
+                : null;
         String pdfUrl = (pdfFile != null && !pdfFile.isEmpty()) ? fileStorageService.uploadPdf(pdfFile) : null;
 
         LessonEntity lesson = new LessonEntity();
@@ -547,8 +554,6 @@ public class AdminService {
                 .message("Thêm bài học và upload file thành công.")
                 .build();
     }
-
-    // ===================== LESSON UPDATE (ADMIN) =====================
 
     @Transactional
     public CreateLessonResponse updateLesson(Integer id, UpdateLessonRequest request) {
@@ -659,12 +664,6 @@ public class AdminService {
                 .build();
     }
 
-    // ===================== LESSON DELETE (ADMIN) =====================
-
-    /**
-     * Xóa bài học theo ID.
-     * Endpoint: DELETE /api/admin/lessons/{id}
-     */
     @Transactional
     public String deleteLesson(Integer id) {
         if (!lessonRepository.existsById(id)) {
@@ -674,18 +673,50 @@ public class AdminService {
         return "Đã xóa thành công bài học ID: " + id;
     }
 
+    public LessonResponseDTO getLessonById(Integer id) {
+        LessonEntity lesson = lessonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
+
+        ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        String chapterName = "";
+        String subjectName = "";
+        String gradeName = "";
+
+        if (chapter != null) {
+            chapterName = chapter.getChapterName();
+            SubjectEntity sub = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
+            if (sub != null) {
+                subjectName = sub.getName();
+                gradeName = sub.getGrade();
+            }
+        }
+
+        LessonResponseDTO dto = new LessonResponseDTO();
+        dto.setId(lesson.getId());
+        dto.setLessonName(lesson.getLessonName());
+        dto.setContent(lesson.getContent());
+        dto.setVideoUrl(lesson.getVideoUrl());
+        dto.setPdfUrl(lesson.getPdfUrl());
+        dto.setDuration(lesson.getDuration());
+        dto.setStatus(lesson.getStatus());
+        dto.setType(lesson.getType());
+        dto.setChapterId(lesson.getChapterId());
+        dto.setChapterName(chapterName);
+        dto.setSubject(subjectName);
+        dto.setGrade(gradeName);
+        return dto;
+    }
+
     // ===================== LESSON SEARCH (ADMIN) =====================
 
     public List<LessonResponseDTO> getAllLessons(String keyword, String subject, String grade) {
         String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
-        String searchSubject = (subject != null && !subject.isBlank() && !subject.equalsIgnoreCase("all")) ? subject.trim() : null;
-        String searchGrade = (grade != null && !grade.isBlank() && !grade.equalsIgnoreCase("all")) ? grade.trim() : null;
-
-        if (searchGrade != null) {
-            if (searchGrade.equalsIgnoreCase("10")) searchGrade = "Lớp 10";
-            else if (searchGrade.equalsIgnoreCase("11")) searchGrade = "Lớp 11";
-            else if (searchGrade.equalsIgnoreCase("12")) searchGrade = "Lớp 12";
-        }
+        String searchSubject = (subject != null && !subject.isBlank() && !subject.equalsIgnoreCase("all"))
+                ? FormatUtil.mapSubjectToDb(subject.trim())
+                : null;
+        String searchGrade = (grade != null && !grade.isBlank() && !grade.equalsIgnoreCase("all"))
+                ? FormatUtil.mapGradeToDb(grade.trim())
+                : null;
 
         List<LessonEntity> lessons = lessonRepository.searchLessons(searchKeyword, searchSubject, searchGrade);
 
@@ -715,10 +746,40 @@ public class AdminService {
             dto.setDuration(lesson.getDuration());
             dto.setStatus(lesson.getStatus());
             dto.setType(lesson.getType());
+            dto.setChapterId(lesson.getChapterId());
             dto.setChapterName(chapterName);
             dto.setSubject(subjectName);
             dto.setGrade(gradeName);
             return dto;
         }).toList();
+    }
+
+    // ===================== CHAPTERS (ADMIN) =====================
+
+    public List<ChapterEntity> getChapters(String subject, String grade) {
+        String dbSubject = FormatUtil.mapSubjectToDb(subject);
+        String dbGrade = FormatUtil.mapGradeToDb(grade);
+
+        SubjectEntity sub = subjectRepository.findByNameAndGrade(dbSubject, dbGrade)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy môn học: " + subject + " lớp " + grade));
+
+        return chapterRepository.findBySubjectIdOrderByOrderNumberAsc(sub.getId());
+    }
+
+    @Transactional
+    public ChapterEntity createChapter(CreateChapterRequest request) {
+        String dbSubject = FormatUtil.mapSubjectToDb(request.getSubjectName());
+        String dbGrade = FormatUtil.mapGradeToDb(request.getGrade());
+
+        SubjectEntity sub = subjectRepository.findByNameAndGrade(dbSubject, dbGrade)
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy môn học: " + request.getSubjectName() + " lớp " + request.getGrade()));
+
+        ChapterEntity chapter = new ChapterEntity();
+        chapter.setSubjectId(sub.getId());
+        chapter.setChapterName(request.getChapterName());
+        chapter.setOrderNumber(request.getOrderNumber() > 0 ? request.getOrderNumber() : 1);
+
+        return chapterRepository.save(chapter);
     }
 }
