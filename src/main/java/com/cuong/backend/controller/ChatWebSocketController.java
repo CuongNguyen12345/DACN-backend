@@ -24,13 +24,17 @@ public class ChatWebSocketController {
         messagingTemplate.convertAndSend("/topic/support/request/" + savedMessage.getRequestId(), savedMessage);
 
         // Also broadcast to the generic role channel for notifications (optional)
-        if ("SYSTEM".equals(payload.getType())) {
+        if ("SYSTEM".equals(savedMessage.getRequestType())) {
             messagingTemplate.convertAndSend("/topic/support/admin", savedMessage);
-        } else if ("ACADEMIC".equals(payload.getType())) {
+        } else if ("ACADEMIC".equals(savedMessage.getRequestType())) {
             messagingTemplate.convertAndSend("/topic/support/teacher", savedMessage);
         }
         
         // Send back to sender to sync requestId if it was null
         messagingTemplate.convertAndSend("/topic/support/user/" + payload.getSenderId(), savedMessage);
+
+        if (savedMessage.getSenderId() != savedMessage.getRequestUserId()) {
+            messagingTemplate.convertAndSend("/topic/support/user/" + savedMessage.getRequestUserId(), savedMessage);
+        }
     }
 }

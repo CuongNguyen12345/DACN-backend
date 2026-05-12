@@ -12,4 +12,5 @@ public interface SupportRequestRepository extends JpaRepository<SupportRequestEn
     List<SupportRequestEntity> findByTypeOrderByCreatedAtDesc(String type);
     List<SupportRequestEntity> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<SupportRequestEntity> findByUserIdAndTypeOrderByCreatedAtDesc(Long userId, String type);
+    List<SupportRequestEntity> findByUser_IdAndTypeAndLesson_IdOrderByCreatedAtDesc(Long userId, String type, Integer lessonId);
 }

@@ -20,15 +20,18 @@ public class RoadmapService {
     private final TopicRepository topicRepo;
     private final SubjectRepository subjectRepo;
     private final UserService userService;
+    private final StudyActivityService studyActivityService;
 
     public RoadmapService(TopicMasteryRepository masteryRepo,
                           TopicRepository topicRepo,
                           SubjectRepository subjectRepo,
-                          UserService userService) {
+                          UserService userService,
+                          StudyActivityService studyActivityService) {
         this.masteryRepo = masteryRepo;
         this.topicRepo = topicRepo;
         this.subjectRepo = subjectRepo;
         this.userService = userService;
+        this.studyActivityService = studyActivityService;
     }
 
     // ─── Save mastery từ kết quả Assessment ─────────────────────────────────
@@ -46,6 +49,8 @@ public class RoadmapService {
         // Nhóm câu hỏi theo topicId
         Map<Integer, long[]> topicStats = new LinkedHashMap<>();
         // topicStats[topicId] = [correctCount, totalCount]
+        long correctTotal = 0;
+        long questionTotal = 0;
 
         for (Map<String, Object> qr : questionResults) {
             Object topicIdObj = qr.get("topicId");
@@ -53,6 +58,8 @@ public class RoadmapService {
 
             int topicId = ((Number) topicIdObj).intValue();
             boolean correct = Boolean.TRUE.equals(qr.get("correct"));
+            questionTotal++;
+            if (correct) correctTotal++;
 
             topicStats.computeIfAbsent(topicId, k -> new long[]{0, 0});
             topicStats.get(topicId)[1]++; // total
@@ -77,6 +84,10 @@ public class RoadmapService {
                 e.setMasteryScore(rawScore);
                 masteryRepo.save(e);
             }
+        }
+
+        if (questionTotal > 0 && ((double) correctTotal / questionTotal) >= 0.6) {
+            studyActivityService.recordStudyActivity(userId, "ROADMAP_ASSESSMENT_60_PERCENT");
         }
     }
 

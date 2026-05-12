@@ -3,6 +3,7 @@ package com.cuong.backend.controller;
 import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
+import com.cuong.backend.model.response.StudyActivityResponse;
 import com.cuong.backend.service.CourseService;
 import com.cuong.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -97,5 +98,12 @@ public class CourseController {
         long userId = userService.getProfile(token).getId();
         Integer time = courseService.getLastWatchedTime(userId, lessonId);
         return time != null ? time : 0;
+    }
+
+    @GetMapping("/progress/study-activity")
+    public StudyActivityResponse getStudyActivity(
+            @RequestHeader("Authorization") String token) {
+        long userId = userService.getProfile(token).getId();
+        return courseService.getStudyActivity(userId);
     }
 }

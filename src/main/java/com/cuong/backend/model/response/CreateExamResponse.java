@@ -8,6 +8,8 @@ import lombok.Data;
 public class CreateExamResponse {
     private long id;
     private String title;
+    private String subject;
+    private String grade;
     private int questionCount;
     private String message;
 }

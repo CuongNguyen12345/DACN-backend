@@ -16,6 +16,7 @@ import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.service.AdminService;
 import com.cuong.backend.util.FormatUtil;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,10 +29,14 @@ public class AdminController {
 
     private final AdminService adminService;
     private final SubjectRepository subjectRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public AdminController(AdminService adminService, SubjectRepository subjectRepository) {
+    public AdminController(AdminService adminService,
+                           SubjectRepository subjectRepository,
+                           SimpMessagingTemplate messagingTemplate) {
         this.adminService = adminService;
         this.subjectRepository = subjectRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @PostMapping("/ai/generate-questions")
@@ -105,7 +110,9 @@ public class AdminController {
 
     @PostMapping("/exams")
     public CreateExamResponse createExam(@RequestBody CreateExamRequest request) {
-        return adminService.createExam(request);
+        CreateExamResponse response = adminService.createExam(request);
+        messagingTemplate.convertAndSend("/topic/exams/new", response);
+        return response;
     }
 
     @GetMapping("/exams")

@@ -7,6 +7,7 @@ import com.cuong.backend.entity.UserProgressEntity;
 import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
+import com.cuong.backend.model.response.StudyActivityResponse;
 import com.cuong.backend.repository.ChapterRepository;
 import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.SubjectRepository;
@@ -29,15 +30,18 @@ public class CourseService {
     private final ChapterRepository chapterRepository;
     private final LessonRepository lessonRepository;
     private final UserProgressRepository userProgressRepository;
+    private final StudyActivityService studyActivityService;
 
     public CourseService(SubjectRepository subjectRepository,
                          ChapterRepository chapterRepository,
                          LessonRepository lessonRepository,
-                         UserProgressRepository userProgressRepository) {
+                         UserProgressRepository userProgressRepository,
+                         StudyActivityService studyActivityService) {
         this.subjectRepository = subjectRepository;
         this.chapterRepository = chapterRepository;
         this.lessonRepository = lessonRepository;
         this.userProgressRepository = userProgressRepository;
+        this.studyActivityService = studyActivityService;
     }
     
     public PageResponse<ChapterResponseDTO> getCourseData(String grade, String subjectName, String keyword, int page, int size) {
@@ -171,10 +175,17 @@ public class CourseService {
     public LessonResponseDTO getLessonById(Integer lessonId) {
         LessonEntity l = lessonRepository.findById(lessonId).orElse(null);
         if (l == null) return null;
+
+        ChapterEntity chapter = chapterRepository.findById(l.getChapterId()).orElse(null);
+        SubjectEntity subject = chapter == null ? null : subjectRepository.findById(chapter.getSubjectId()).orElse(null);
         
         LessonResponseDTO dto = LessonResponseDTO.builder()
                 .id(l.getId())
                 .lessonName(l.getLessonName())
+                .subjectId(subject == null ? null : (long) subject.getId())
+                .subjectName(subject == null ? null : subject.getName())
+                .gradeLevel(subject == null ? null : subject.getGrade())
+                .subjectBadge(subject == null ? null : subject.getName() + " " + subject.getGrade())
                 .videoUrl(l.getVideoUrl())
                 .pdfUrl(l.getPdfUrl())
                 .build();
@@ -216,6 +227,8 @@ public class CourseService {
             progress.setCompletedAt(new Date());
             userProgressRepository.save(progress);
         }
+
+        studyActivityService.recordStudyActivity(userId, "VIDEO_90_PERCENT");
     }
 
     @Transactional
@@ -237,5 +250,9 @@ public class CourseService {
         return userProgressRepository.findByUserIdAndLessonId(userId, lessonId)
                 .map(UserProgressEntity::getLastWatchedTime)
                 .orElse(0);
+    }
+
+    public StudyActivityResponse getStudyActivity(long userId) {
+        return studyActivityService.getStudyActivity(userId);
     }
 }

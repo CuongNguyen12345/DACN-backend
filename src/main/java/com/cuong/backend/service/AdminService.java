@@ -563,6 +563,8 @@ public class AdminService {
         return CreateExamResponse.builder()
                 .id(saved.getId())
                 .title(saved.getTitle())
+                .subject(request.getSubject())
+                .grade(request.getGrade())
                 .questionCount(questions.size())
                 .message("Tạo đề thi thành công với " + questions.size() + " câu hỏi.")
                 .build();
