@@ -3,17 +3,21 @@ package com.cuong.backend.controller;
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
+import com.cuong.backend.model.request.QuizRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
 import com.cuong.backend.model.response.AiChatResponse;
 import com.cuong.backend.model.response.CreateExamResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
+import com.cuong.backend.model.response.QuizDetailResponseDTO;
+import com.cuong.backend.model.response.QuizResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.model.response.UserAccountDTO;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.service.AdminService;
+import com.cuong.backend.service.QuizService;
 import com.cuong.backend.util.FormatUtil;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -28,13 +32,16 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final AdminService adminService;
+    private final QuizService quizService;
     private final SubjectRepository subjectRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public AdminController(AdminService adminService,
+                           QuizService quizService,
                            SubjectRepository subjectRepository,
                            SimpMessagingTemplate messagingTemplate) {
         this.adminService = adminService;
+        this.quizService = quizService;
         this.subjectRepository = subjectRepository;
         this.messagingTemplate = messagingTemplate;
     }
@@ -126,6 +133,37 @@ public class AdminController {
     @GetMapping("/exams/{id}")
     public ExamDetailResponseDTO getExamById(@PathVariable Long id) {
         return adminService.getExamById(id);
+    }
+
+    // ---------- Quizzes / Exercises ----------
+
+    @PostMapping("/quizzes")
+    public QuizResponseDTO createQuiz(@RequestBody QuizRequest request) {
+        return quizService.createQuiz(request);
+    }
+
+    @GetMapping("/quizzes")
+    public List<QuizResponseDTO> getAllQuizzes(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) String grade,
+            @RequestParam(required = false) String lesson) {
+        return quizService.getAllQuizzes(keyword, subject, grade, lesson);
+    }
+
+    @GetMapping("/quizzes/{id}")
+    public QuizDetailResponseDTO getQuizById(@PathVariable Long id) {
+        return quizService.getQuizById(id);
+    }
+
+    @PutMapping("/quizzes/{id}")
+    public QuizResponseDTO updateQuiz(@PathVariable Long id, @RequestBody QuizRequest request) {
+        return quizService.updateQuiz(id, request);
+    }
+
+    @DeleteMapping("/quizzes/{id}")
+    public void deleteQuiz(@PathVariable Long id) {
+        quizService.deleteQuiz(id);
     }
 
     // ---------- Teacher Account ----------
