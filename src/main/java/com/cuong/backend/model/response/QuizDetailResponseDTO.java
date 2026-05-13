@@ -12,12 +12,15 @@ public class QuizDetailResponseDTO {
     private String title;
     private Integer lessonId;
     private String lessonTitle;
+    private Integer chapterId;
+    private String chapterTitle;
     private Integer topicId;
     private String topicName;
     private String subject;
     private String grade;
     private int duration;
     private int passingScore;
+    private String difficulty;
     private List<QuestionItem> questions;
 
     @Data

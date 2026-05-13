@@ -13,5 +13,6 @@ public class QuizRequest {
     private Integer lessonId;
     private int duration;
     private int passingScore;
+    private String difficulty;
     private List<String> questionIds;
 }

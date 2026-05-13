@@ -1,5 +1,6 @@
 package com.cuong.backend.service;
 
+import com.cuong.backend.entity.ChapterEntity;
 import com.cuong.backend.entity.LessonEntity;
 import com.cuong.backend.entity.QuestionEntity;
 import com.cuong.backend.entity.QuestionOptionEntity;
@@ -9,8 +10,11 @@ import com.cuong.backend.entity.QuizQuestionItemId;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.entity.TopicEntity;
 import com.cuong.backend.model.request.QuizRequest;
+import com.cuong.backend.model.request.QuizSubmitRequest;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
 import com.cuong.backend.model.response.QuizResponseDTO;
+import com.cuong.backend.model.response.QuizSubmitResponseDTO;
+import com.cuong.backend.repository.ChapterRepository;
 import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.QuestionRepository;
 import com.cuong.backend.repository.QuizRepository;
@@ -36,18 +40,24 @@ public class QuizService {
     private final SubjectRepository subjectRepository;
     private final LessonRepository lessonRepository;
     private final QuestionRepository questionRepository;
+    private final ChapterRepository chapterRepository;
+    private final RoadmapService roadmapService;
 
     public QuizService(
             QuizRepository quizRepository,
             TopicRepository topicRepository,
             SubjectRepository subjectRepository,
             LessonRepository lessonRepository,
-            QuestionRepository questionRepository) {
+            QuestionRepository questionRepository,
+            ChapterRepository chapterRepository,
+            RoadmapService roadmapService) {
         this.quizRepository = quizRepository;
         this.topicRepository = topicRepository;
         this.subjectRepository = subjectRepository;
         this.lessonRepository = lessonRepository;
         this.questionRepository = questionRepository;
+        this.chapterRepository = chapterRepository;
+        this.roadmapService = roadmapService;
     }
 
     @Transactional
@@ -94,6 +104,46 @@ public class QuizService {
     }
 
     @Transactional(readOnly = true)
+    public List<QuizResponseDTO> getQuizzesByLessonIds(List<Integer> lessonIds) {
+        if (lessonIds == null || lessonIds.isEmpty()) {
+            return List.of();
+        }
+
+        return quizRepository.findByLessonIdIn(lessonIds).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizResponseDTO> getQuizzesByCourseLesson(Integer lessonId) {
+        if (lessonId == null) {
+            return List.of();
+        }
+
+        LessonEntity lesson = lessonRepository.findById(lessonId).orElse(null);
+        if (lesson == null) {
+            return List.of();
+        }
+
+        ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        if (chapter == null) {
+            return List.of();
+        }
+
+        List<Integer> topicIds = topicRepository.findBySubjectId(chapter.getSubjectId()).stream()
+                .map(TopicEntity::getId)
+                .toList();
+
+        if (topicIds.isEmpty()) {
+            return List.of();
+        }
+
+        return quizRepository.findByTopicIdIn(topicIds).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public QuizDetailResponseDTO getQuizById(Long id) {
         QuizEntity quiz = quizRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bài tập ID: " + id));
@@ -109,13 +159,58 @@ public class QuizService {
                 .title(quiz.getTitle())
                 .lessonId(quiz.getLessonId())
                 .lessonTitle(meta.lessonTitle())
+                .chapterId(meta.chapterId())
+                .chapterTitle(meta.chapterTitle())
                 .topicId(meta.topicId())
                 .topicName(meta.topicName())
                 .subject(meta.subject())
                 .grade(meta.grade())
                 .duration(quiz.getDuration())
                 .passingScore(quiz.getPassingScore())
+                .difficulty(formatDifficulty(quiz.getDifficulty()))
                 .questions(questions)
+                .build();
+    }
+
+    @Transactional
+    public QuizSubmitResponseDTO submitQuiz(Long quizId, long userId, QuizSubmitRequest request) {
+        QuizEntity quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new RuntimeException("KhÃ´ng tÃ¬m tháº¥y bÃ i táº­p ID: " + quizId));
+        List<QuizQuestionItemEntity> items = quiz.getQuestionItems().stream()
+                .sorted((a, b) -> Integer.compare(a.getOrderNumber(), b.getOrderNumber()))
+                .toList();
+
+        int total = items.size();
+        int correct = 0;
+        java.util.Map<String, String> answers =
+                request == null || request.getAnswers() == null
+                        ? java.util.Map.of()
+                        : request.getAnswers();
+
+        for (QuizQuestionItemEntity item : items) {
+            String answer = answers.get(String.valueOf(item.getQuestion().getId()));
+            String correctAnswer = getCorrectAnswerLabel(item.getQuestion());
+            if (answer != null && answer.equals(correctAnswer)) {
+                correct++;
+            }
+        }
+
+        int scorePercent = total == 0 ? 0 : (int) Math.round((correct * 100.0) / total);
+        boolean passed = scorePercent >= quiz.getPassingScore();
+        double masteryGain = calculateMasteryGain(quiz.getDifficulty(), scorePercent / 100.0);
+        double masteryScore = masteryGain > 0
+                ? roadmapService.increaseMastery(userId, quiz.getTopicId(), masteryGain)
+                : roadmapService.increaseMastery(userId, quiz.getTopicId(), 0);
+
+        return QuizSubmitResponseDTO.builder()
+                .correct(correct)
+                .total(total)
+                .scorePercent(scorePercent)
+                .passingScore(quiz.getPassingScore())
+                .passed(passed)
+                .difficulty(formatDifficulty(quiz.getDifficulty()))
+                .masteryGain(masteryGain)
+                .masteryScore(masteryScore)
                 .build();
     }
 
@@ -131,6 +226,7 @@ public class QuizService {
         quiz.setLessonId(resolveLessonId(request.getLessonId()));
         quiz.setDuration(Math.max(request.getDuration(), 0));
         quiz.setPassingScore(Math.max(request.getPassingScore(), 0));
+        quiz.setDifficulty(normalizeDifficultyToDb(request.getDifficulty()));
     }
 
     private TopicEntity resolveTopic(QuizRequest request) {
@@ -195,6 +291,45 @@ public class QuizService {
         }
     }
 
+    private String getCorrectAnswerLabel(QuestionEntity question) {
+        if (question.getOptions() == null) return null;
+
+        int index = 0;
+        for (QuestionOptionEntity option : question.getOptions()) {
+            if (option.isCorrect()) {
+                return index < OPTION_LABELS.length ? OPTION_LABELS[index] : String.valueOf(index + 1);
+            }
+            index++;
+        }
+        return null;
+    }
+
+    private double calculateMasteryGain(String difficulty, double scoreRatio) {
+        String normalized = normalizeDifficultyToDb(difficulty);
+        double base = switch (normalized) {
+            case "HARD" -> 0.12;
+            case "MEDIUM" -> 0.08;
+            default -> 0.04;
+        };
+        return Math.round(base * Math.max(0, Math.min(1, scoreRatio)) * 10000.0) / 10000.0;
+    }
+
+    private String normalizeDifficultyToDb(String difficulty) {
+        if (difficulty == null || difficulty.isBlank()) return "EASY";
+        String normalized = difficulty.trim().toUpperCase(Locale.ROOT);
+        if ("HARD".equals(normalized) || normalized.contains("KH")) return "HARD";
+        if ("MEDIUM".equals(normalized) || normalized.contains("TRUNG")) return "MEDIUM";
+        return "EASY";
+    }
+
+    private String formatDifficulty(String difficulty) {
+        return switch (normalizeDifficultyToDb(difficulty)) {
+            case "HARD" -> "Khó";
+            case "MEDIUM" -> "Trung bình";
+            default -> "Dễ";
+        };
+    }
+
     private void replaceQuestionItems(QuizEntity quiz, List<QuestionEntity> questions) {
         quiz.getQuestionItems().clear();
         for (int i = 0; i < questions.size(); i++) {
@@ -215,6 +350,8 @@ public class QuizService {
                 .title(quiz.getTitle())
                 .lessonId(quiz.getLessonId())
                 .lessonTitle(meta.lessonTitle())
+                .chapterId(meta.chapterId())
+                .chapterTitle(meta.chapterTitle())
                 .topicId(meta.topicId())
                 .topicName(meta.topicName())
                 .subject(meta.subject())
@@ -222,6 +359,7 @@ public class QuizService {
                 .questionCount(quiz.getQuestionItems().size())
                 .duration(quiz.getDuration())
                 .passingScore(quiz.getPassingScore())
+                .difficulty(formatDifficulty(quiz.getDifficulty()))
                 .createdAt(formatDate(quiz.getCreatedAt()))
                 .updatedAt(formatDate(quiz.getUpdatedAt()))
                 .build();
@@ -265,6 +403,7 @@ public class QuizService {
         LessonEntity lesson = quiz.getLessonId() == null
                 ? null
                 : lessonRepository.findById(quiz.getLessonId()).orElse(null);
+        ChapterEntity chapter = resolveChapter(topic, subject, lesson);
 
         String subjectName = subject == null ? "Khác" : FormatUtil.mapSubjectToFe(subject.getName());
         String grade = subject == null ? "Chưa rõ" : "Lớp " + subject.getGrade();
@@ -274,11 +413,72 @@ public class QuizService {
                 : lesson.getLessonName();
 
         return new QuizMeta(
+                chapter == null ? null : chapter.getId(),
+                chapter == null ? "" : chapter.getChapterName(),
                 topic == null ? null : topic.getId(),
                 topicName,
                 lessonTitle,
                 subjectName,
                 grade);
+    }
+
+    private ChapterEntity resolveChapter(TopicEntity topic, SubjectEntity subject, LessonEntity lesson) {
+        if (lesson != null) {
+            return chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        }
+
+        if (topic == null || subject == null) {
+            return null;
+        }
+
+        String normalizedTopic = normalizeChapterName(topic.getName());
+        return chapterRepository.findBySubjectIdOrderByOrderNumberAsc(subject.getId()).stream()
+                .filter(chapter -> {
+                    String normalizedChapter = normalizeChapterName(chapter.getChapterName());
+                    return normalizedChapter.equals(normalizedTopic)
+                            || normalizedChapter.contains(normalizedTopic)
+                            || normalizedTopic.contains(normalizedChapter)
+                            || getChapterMatchScore(chapter.getChapterName(), topic.getName()) >= 0.5;
+                })
+                .findFirst()
+                .orElse(null);
+    }
+
+    private double getChapterMatchScore(String chapterName, String topicName) {
+        Set<String> chapterTokens = getChapterNameTokens(chapterName);
+        Set<String> topicTokens = getChapterNameTokens(topicName);
+        if (chapterTokens.isEmpty() || topicTokens.isEmpty()) {
+            return 0;
+        }
+
+        long matchedCount = topicTokens.stream()
+                .filter(chapterTokens::contains)
+                .count();
+        return (double) matchedCount / topicTokens.size();
+    }
+
+    private Set<String> getChapterNameTokens(String value) {
+        Set<String> tokens = new LinkedHashSet<>();
+        String normalized = normalizeChapterName(value);
+        if (normalized.isBlank()) {
+            return tokens;
+        }
+
+        for (String token : normalized.split("\\s+")) {
+            if (token.length() >= 2) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    private String normalizeChapterName(String value) {
+        if (value == null) return "";
+        return value.toLowerCase(Locale.ROOT)
+                .replaceFirst("^chương\\s*\\d+\\s*[:.-]?\\s*", "")
+                .replace("toán học", "")
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim();
     }
 
     private boolean matchesSearch(QuizResponseDTO quiz, String searchTerm) {
@@ -309,6 +509,8 @@ public class QuizService {
     }
 
     private record QuizMeta(
+            Integer chapterId,
+            String chapterTitle,
             Integer topicId,
             String topicName,
             String lessonTitle,

@@ -3,8 +3,13 @@ package com.cuong.backend.controller;
 import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
+import com.cuong.backend.model.response.QuizDetailResponseDTO;
+import com.cuong.backend.model.response.QuizResponseDTO;
+import com.cuong.backend.model.request.QuizSubmitRequest;
+import com.cuong.backend.model.response.QuizSubmitResponseDTO;
 import com.cuong.backend.model.response.StudyActivityResponse;
 import com.cuong.backend.service.CourseService;
+import com.cuong.backend.service.QuizService;
 import com.cuong.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +25,9 @@ public class CourseController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private QuizService quizService;
 
     @GetMapping("/subjects")
     public List<com.cuong.backend.entity.SubjectEntity> getAllSubjects() {
@@ -51,6 +59,30 @@ public class CourseController {
     @GetMapping("/lesson/{id}")
     public LessonResponseDTO getLessonDetails(@PathVariable Integer id) {
         return courseService.getLessonById(id);
+    }
+
+    @GetMapping("/quizzes")
+    public List<QuizResponseDTO> getQuizzesByLessons(@RequestParam(required = false) List<Integer> lessonIds) {
+        return quizService.getQuizzesByLessonIds(lessonIds);
+    }
+
+    @GetMapping("/quizzes/course")
+    public List<QuizResponseDTO> getCourseQuizzes(@RequestParam Integer lessonId) {
+        return quizService.getQuizzesByCourseLesson(lessonId);
+    }
+
+    @GetMapping("/quizzes/{id}")
+    public QuizDetailResponseDTO getQuizDetails(@PathVariable Long id) {
+        return quizService.getQuizById(id);
+    }
+
+    @PostMapping("/quizzes/{id}/submit")
+    public QuizSubmitResponseDTO submitQuiz(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id,
+            @RequestBody QuizSubmitRequest request) {
+        long userId = userService.getProfile(token).getId();
+        return quizService.submitQuiz(id, userId, request);
     }
 
     /**

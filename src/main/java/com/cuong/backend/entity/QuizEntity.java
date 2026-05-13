@@ -48,6 +48,9 @@ public class QuizEntity {
     @Column(name = "passing_score")
     int passingScore;
 
+    @Column(name = "difficulty")
+    String difficulty = "EASY";
+
     @CreatedDate
     @Column(name = "created_at")
     Date createdAt;

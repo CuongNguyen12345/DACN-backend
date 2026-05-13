@@ -10,6 +10,8 @@ public class QuizResponseDTO {
     private String title;
     private Integer lessonId;
     private String lessonTitle;
+    private Integer chapterId;
+    private String chapterTitle;
     private Integer topicId;
     private String topicName;
     private String subject;
@@ -17,6 +19,7 @@ public class QuizResponseDTO {
     private int questionCount;
     private int duration;
     private int passingScore;
+    private String difficulty;
     private String createdAt;
     private String updatedAt;
 }

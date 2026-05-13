@@ -96,6 +96,23 @@ public class RoadmapService {
     /**
      * Trả về danh sách tất cả topics của môn, kèm masteryScore của user.
      */
+    @Transactional
+    public double increaseMastery(long userId, int topicId, double increment) {
+        TopicMasteryEntity mastery = masteryRepo.findByUserIdAndTopicId(userId, topicId)
+                .orElseGet(() -> {
+                    TopicMasteryEntity entity = new TopicMasteryEntity();
+                    entity.setUserId(userId);
+                    entity.setTopicId(topicId);
+                    entity.setMasteryScore(0);
+                    return entity;
+                });
+
+        double nextScore = Math.min(1.0, mastery.getMasteryScore() + Math.max(0, increment));
+        mastery.setMasteryScore(nextScore);
+        masteryRepo.save(mastery);
+        return nextScore;
+    }
+
     public List<Map<String, Object>> getRoadmap(String token, String subject, String grade) {
         long userId = userService.getProfile(token).getId();
         String dbSubject = FormatUtil.mapSubjectToDb(subject);
