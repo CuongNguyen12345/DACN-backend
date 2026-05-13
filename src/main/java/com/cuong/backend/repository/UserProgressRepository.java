@@ -22,5 +22,12 @@ public interface UserProgressRepository extends JpaRepository<UserProgressEntity
                                          @Param("lessonIds") List<Integer> lessonIds);
 
     /** Tìm bản ghi tiến độ cụ thể của một user với một lesson. */
-    Optional<UserProgressEntity> findByUserIdAndLessonId(long userId, int lessonId);
+    Optional<UserProgressEntity> findFirstByUserIdAndLessonIdOrderByIdAsc(long userId, int lessonId);
+
+    @Query("""
+            SELECT up FROM UserProgressEntity up
+            WHERE up.userId = :userId AND up.bookmarked = true
+            ORDER BY up.bookmarkedAt DESC
+            """)
+    List<UserProgressEntity> findBookmarkedByUserIdOrderByBookmarkedAtDesc(@Param("userId") long userId);
 }

@@ -34,7 +34,17 @@ public class UserProgressEntity {
     @Column(name = "last_watched_time")
     Integer lastWatchedTime;
 
+    @Column(name = "is_bookmarked")
+    Boolean bookmarked;
+
+    @Column(name = "bookmarked_at")
+    Date bookmarkedAt;
+
     @Column(name = "completed_at")
     @CreatedDate
     Date completedAt;
+
+    public boolean isBookmarked() {
+        return Boolean.TRUE.equals(bookmarked);
+    }
 }

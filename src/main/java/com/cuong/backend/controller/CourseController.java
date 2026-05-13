@@ -1,6 +1,7 @@
 package com.cuong.backend.controller;
 
 import com.cuong.backend.model.response.ChapterResponseDTO;
+import com.cuong.backend.model.response.BookmarkedLessonResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/learning")
@@ -137,5 +139,36 @@ public class CourseController {
             @RequestHeader("Authorization") String token) {
         long userId = userService.getProfile(token).getId();
         return courseService.getStudyActivity(userId);
+    }
+
+    @GetMapping("/bookmarks")
+    public List<BookmarkedLessonResponseDTO> getBookmarkedLessons(
+            @RequestHeader("Authorization") String token) {
+        long userId = userService.getProfile(token).getId();
+        return courseService.getBookmarkedLessons(userId);
+    }
+
+    @GetMapping("/bookmarks/{lessonId}")
+    public Map<String, Boolean> getLessonBookmarkStatus(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Integer lessonId) {
+        long userId = userService.getProfile(token).getId();
+        return Map.of("bookmarked", courseService.isLessonBookmarked(userId, lessonId));
+    }
+
+    @PostMapping("/bookmarks/{lessonId}")
+    public Map<String, Boolean> bookmarkLesson(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Integer lessonId) {
+        long userId = userService.getProfile(token).getId();
+        return Map.of("bookmarked", courseService.setLessonBookmarked(userId, lessonId, true));
+    }
+
+    @DeleteMapping("/bookmarks/{lessonId}")
+    public Map<String, Boolean> removeLessonBookmark(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Integer lessonId) {
+        long userId = userService.getProfile(token).getId();
+        return Map.of("bookmarked", courseService.setLessonBookmarked(userId, lessonId, false));
     }
 }
