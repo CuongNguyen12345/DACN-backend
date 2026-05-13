@@ -10,19 +10,25 @@ import com.cuong.backend.model.response.AiChatResponse;
 import com.cuong.backend.model.response.CreateExamResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
+import com.cuong.backend.model.response.DashboardOverview;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
 import com.cuong.backend.model.response.QuizResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
+import com.cuong.backend.model.response.ScoreDistributionItem;
+import com.cuong.backend.model.response.TopStudentItem;
 import com.cuong.backend.model.response.UserAccountDTO;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.service.AdminService;
 import com.cuong.backend.service.QuizService;
+import com.cuong.backend.service.StatisticsService;
 import com.cuong.backend.util.FormatUtil;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,15 +39,18 @@ public class AdminController {
 
     private final AdminService adminService;
     private final QuizService quizService;
+    private final StatisticsService statisticsService;
     private final SubjectRepository subjectRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public AdminController(AdminService adminService,
                            QuizService quizService,
+                           StatisticsService statisticsService,
                            SubjectRepository subjectRepository,
                            SimpMessagingTemplate messagingTemplate) {
         this.adminService = adminService;
         this.quizService = quizService;
+        this.statisticsService = statisticsService;
         this.subjectRepository = subjectRepository;
         this.messagingTemplate = messagingTemplate;
     }
@@ -186,4 +195,29 @@ public class AdminController {
         return adminService.getAccountDetail(id);
     }
 
+    // ---------- Reports ----------
+
+    @GetMapping("/reports/overview")
+    public DashboardOverview getReportOverview(@RequestParam(required = false) String month) {
+        return statisticsService.getOverview(parseReportMonth(month));
+    }
+
+    @GetMapping("/reports/score-distribution")
+    public List<ScoreDistributionItem> getScoreDistribution(@RequestParam(required = false) String month) {
+        return statisticsService.getScoreDistribution(parseReportMonth(month));
+    }
+
+    @GetMapping("/reports/top-students")
+    public List<TopStudentItem> getTopStudents(
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "5") int limit) {
+        return statisticsService.getTopStudents(parseReportMonth(month), limit);
+    }
+
+    private LocalDate parseReportMonth(String month) {
+        if (month == null || month.isBlank()) {
+            return LocalDate.now().withDayOfMonth(1);
+        }
+        return YearMonth.parse(month).atDay(1);
+    }
 }

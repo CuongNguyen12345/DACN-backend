@@ -717,7 +717,8 @@ public class AdminService {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản ID: " + id));
 
-        boolean isTeacher = user.getRole().equalsIgnoreCase("TEACHER");
+        String normalizedRole = normalizeAccountRole(user.getRole());
+        boolean isTeacher = "TEACHER".equals(normalizedRole);
 
         // Build unit string
         String unit;
@@ -725,7 +726,7 @@ public class AdminService {
             String subject = FormatUtil.mapSubjectToFe(user.getSchoolName());
             String grades = user.getGrade() != null ? " (Lớp " + user.getGrade() + ")" : "";
             unit = "Tổ " + (subject != null ? subject : user.getSchoolName()) + grades;
-        } else {
+        } else if ("STUDENT".equals(normalizedRole)) {
             String grade = user.getGrade();
             if (grade != null && !grade.isBlank()) {
                 String gradeNum = grade.replace("Lớp ", "").trim();
@@ -733,6 +734,8 @@ public class AdminService {
             } else {
                 unit = "Chưa cập nhật";
             }
+        } else {
+            unit = "Chưa cập nhật vai trò";
         }
 
         // Calculate stats
@@ -762,7 +765,7 @@ public class AdminService {
                 .id(user.getId())
                 .userName(user.getUserName())
                 .email(user.getEmail())
-                .role(user.getRole())
+                .role(normalizedRole == null ? "Chưa phân quyền" : normalizedRole)
                 .unit(unit)
                 .phoneNumber(user.getPhoneNumber())
                 .grade(user.getGrade())
@@ -780,15 +783,16 @@ public class AdminService {
     public List<com.cuong.backend.model.response.UserAccountDTO> searchAccounts(String keyword, String role) {
         List<UserEntity> users = userRepository.searchUsers(keyword, role);
         return users.stream()
-                .filter(u -> !u.getRole().equalsIgnoreCase("ADMIN"))
+                .filter(u -> !"ADMIN".equals(normalizeAccountRole(u.getRole())))
                 .map(u -> {
+                    String normalizedRole = normalizeAccountRole(u.getRole());
                     String unit;
-                    if (u.getRole().equalsIgnoreCase("TEACHER")) {
+                    if ("TEACHER".equals(normalizedRole)) {
                         // Giáo viên: hiển thị môn học + lớp phân công
                         String subject = FormatUtil.mapSubjectToFe(u.getSchoolName());
                         String grades = u.getGrade() != null ? " (Lớp " + u.getGrade() + ")" : "";
                         unit = "Tổ " + (subject != null ? subject : u.getSchoolName()) + grades;
-                    } else {
+                    } else if ("STUDENT".equals(normalizedRole)) {
                         // Học viên: hiển thị khối học
                         String grade = u.getGrade();
                         if (grade != null && !grade.isBlank()) {
@@ -798,16 +802,25 @@ public class AdminService {
                         } else {
                             unit = "Chưa cập nhật khối học";
                         }
+                    } else {
+                        unit = "Chưa cập nhật vai trò";
                     }
                     return com.cuong.backend.model.response.UserAccountDTO.builder()
                             .id(u.getId())
                             .userName(u.getUserName())
                             .email(u.getEmail())
-                            .role(u.getRole())
+                            .role(normalizedRole == null ? "Chưa phân quyền" : normalizedRole)
                             .unit(unit)
                             .createdDate(u.getCreatedDate())
                             .build();
                 })
                 .collect(java.util.stream.Collectors.toList());
+    }
+
+    private String normalizeAccountRole(String role) {
+        if (role == null || role.isBlank()) {
+            return null;
+        }
+        return role.trim().toUpperCase(java.util.Locale.ROOT);
     }
 }
