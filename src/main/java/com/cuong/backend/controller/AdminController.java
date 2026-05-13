@@ -2,16 +2,22 @@ package com.cuong.backend.controller;
 
 import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
+import com.cuong.backend.model.request.CreateChapterRequest;
+import com.cuong.backend.model.request.CreateLessonRequest;
+import com.cuong.backend.entity.ChapterEntity;
+import com.cuong.backend.model.request.UpdateLessonRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.QuizRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
 import com.cuong.backend.model.response.AiChatResponse;
 import com.cuong.backend.model.response.CreateExamResponse;
+import com.cuong.backend.model.response.CreateLessonResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
 import com.cuong.backend.model.response.QuizResponseDTO;
+import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
 import com.cuong.backend.model.response.UserAccountDTO;
@@ -21,8 +27,12 @@ import com.cuong.backend.service.QuizService;
 import com.cuong.backend.util.FormatUtil;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
 
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -184,6 +194,77 @@ public class AdminController {
     @GetMapping("/accounts/{id}")
     public com.cuong.backend.model.response.AccountDetailDTO getAccountDetail(@PathVariable Long id) {
         return adminService.getAccountDetail(id);
+    }
+
+    @GetMapping("/chapters")
+    public List<ChapterEntity> getChapters(
+            @RequestParam String subject,
+            @RequestParam String grade) {
+        return adminService.getChapters(subject, grade);
+    }
+
+    @PostMapping("/chapters")
+    public ChapterEntity createChapter(@RequestBody CreateChapterRequest request) {
+        return adminService.createChapter(request);
+    }
+
+    @GetMapping("/lessons")
+    public List<LessonResponseDTO> getAllLessons(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) String grade) {
+        return adminService.getAllLessons(keyword, subject, grade);
+    }
+
+    @PostMapping("/lessons")
+    public CreateLessonResponse createLesson(@RequestBody CreateLessonRequest request) {
+        return adminService.createLesson(request);
+    }
+
+    @PostMapping(value = "/lessons/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CreateLessonResponse createLessonWithUpload(
+            @RequestParam int chapterId,
+            @RequestParam String lessonName,
+            @RequestParam(required = false) String content,
+            @RequestParam(required = false) String duration,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) MultipartFile videoFile,
+            @RequestParam(required = false) MultipartFile pdfFile) throws IOException {
+        return adminService.createLessonWithUpload(chapterId, lessonName, content, duration, status, type, videoFile,
+                pdfFile);
+    }
+
+    @PutMapping("/lessons/{id}")
+    public CreateLessonResponse updateLesson(
+            @PathVariable Integer id,
+            @RequestBody UpdateLessonRequest request) {
+        return adminService.updateLesson(id, request);
+    }
+
+    @PutMapping(value = "/lessons/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CreateLessonResponse updateLessonWithUpload(
+            @PathVariable Integer id,
+            @RequestParam(required = false) Integer chapterId,
+            @RequestParam(required = false) String lessonName,
+            @RequestParam(required = false) String content,
+            @RequestParam(required = false) String duration,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) MultipartFile videoFile,
+            @RequestParam(required = false) MultipartFile pdfFile) throws IOException {
+        return adminService.updateLessonWithUpload(id, chapterId, lessonName, content, duration, status, type,
+                videoFile, pdfFile);
+    }
+
+    @DeleteMapping("/lessons/{id}")
+    public String deleteLesson(@PathVariable Integer id) {
+        return adminService.deleteLesson(id);
+    }
+
+    @GetMapping("/lessons/{id}")
+    public LessonResponseDTO getLessonById(@PathVariable Integer id) {
+        return adminService.getLessonById(id);
     }
 
 }

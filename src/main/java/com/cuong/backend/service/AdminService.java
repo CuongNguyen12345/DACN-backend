@@ -21,12 +21,19 @@ import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
+import com.cuong.backend.model.request.CreateLessonRequest;
+import com.cuong.backend.model.request.CreateChapterRequest;
+import com.cuong.backend.model.request.UpdateLessonRequest;
 
 import com.cuong.backend.model.response.CreateExamResponse;
+import com.cuong.backend.model.response.CreateLessonResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
 import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
+import com.cuong.backend.model.response.LessonResponseDTO;
+import com.cuong.backend.entity.LessonEntity;
+import com.cuong.backend.entity.ChapterEntity;
 
 import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.QuestionRepository;
@@ -37,7 +44,12 @@ import com.cuong.backend.repository.UserProgressRepository;
 import com.cuong.backend.repository.TopicMasteryRepository;
 
 import com.cuong.backend.model.response.AccountDetailDTO;
+import com.cuong.backend.repository.LessonRepository;
+import com.cuong.backend.repository.ChapterRepository;
+
 import com.cuong.backend.util.FormatUtil;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -61,6 +73,9 @@ public class AdminService {
     private final UserRepository userRepository;
     private final UserProgressRepository userProgressRepository;
     private final TopicMasteryRepository topicMasteryRepository;
+    private final LessonRepository lessonRepository;
+    private final ChapterRepository chapterRepository;
+    private final FileStorageService fileStorageService;
 
     public AdminService(@Qualifier("adminModel") ChatLanguageModel aiModel,
             SubjectRepository subjectRepository,
@@ -69,7 +84,10 @@ public class AdminService {
             TopicRepository topicRepository,
             UserRepository userRepository,
             UserProgressRepository userProgressRepository,
-            TopicMasteryRepository topicMasteryRepository) {
+            TopicMasteryRepository topicMasteryRepository,
+            LessonRepository lessonRepository,
+            ChapterRepository chapterRepository,
+            FileStorageService fileStorageService) {
         this.aiModel = aiModel;
         this.subjectRepository = subjectRepository;
         this.questionRepository = questionRepository;
@@ -78,6 +96,9 @@ public class AdminService {
         this.userRepository = userRepository;
         this.userProgressRepository = userProgressRepository;
         this.topicMasteryRepository = topicMasteryRepository;
+        this.lessonRepository = lessonRepository;
+        this.chapterRepository = chapterRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     public String generateQuiz(String lessonContent, String base64Image) {
@@ -542,6 +563,7 @@ public class AdminService {
                     String cleaned = raw.startsWith("Q-") ? raw.substring(2) : raw;
                     numericIds.add(Long.parseLong(cleaned));
                 } catch (NumberFormatException ignored) {
+                
                 }
             }
         }
@@ -608,6 +630,7 @@ public class AdminService {
         }
 
         return entities.stream().map(exam -> {
+
             String subjectName = "Khác";
             String gradeName = "Chưa rõ";
             var sOpt = subjectRepository.findById(exam.getSubjectId());
@@ -677,6 +700,7 @@ public class AdminService {
                 .questions(questionItems)
                 .build();
     }
+
 
     public void incrementAttemptCount(Long id) {
         examRepository.incrementAttemptCount(id);
@@ -809,5 +833,308 @@ public class AdminService {
                             .build();
                 })
                 .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Transactional
+    public CreateLessonResponse createLesson(CreateLessonRequest request) {
+        ChapterEntity chapter = chapterRepository.findById(request.getChapterId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + request.getChapterId()));
+
+        if (request.getLessonName() == null || request.getLessonName().isBlank()) {
+            throw new IllegalArgumentException("Tên bài học không được để trống.");
+        }
+
+        LessonEntity lesson = new LessonEntity();
+        lesson.setChapterId(request.getChapterId());
+        lesson.setLessonName(request.getLessonName().trim());
+        lesson.setContent(request.getContent());
+        lesson.setVideoUrl(request.getVideoUrl());
+        lesson.setPdfUrl(request.getPdfUrl());
+        lesson.setDuration(request.getDuration());
+        lesson.setStatus(request.getStatus() != null ? request.getStatus() : "Đã xuất bản");
+        lesson.setType(request.getType());
+
+        LessonEntity saved = lessonRepository.save(lesson);
+
+        return CreateLessonResponse.builder()
+                .id(saved.getId())
+                .lessonName(saved.getLessonName())
+                .chapterName(chapter.getChapterName())
+                .videoUrl(saved.getVideoUrl())
+                .pdfUrl(saved.getPdfUrl())
+                .message("Thêm bài học thành công.")
+                .build();
+    }
+
+    @Transactional
+    public CreateLessonResponse createLessonWithUpload(
+            int chapterId,
+            String lessonName,
+            String content,
+            String duration,
+            String status,
+            String type,
+            MultipartFile videoFile,
+            MultipartFile pdfFile) throws IOException {
+
+        ChapterEntity chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + chapterId));
+
+        if (lessonName == null || lessonName.isBlank()) {
+            throw new IllegalArgumentException("Tên bài học không được để trống.");
+        }
+
+        String videoUrl = (videoFile != null && !videoFile.isEmpty()) ? fileStorageService.uploadVideo(videoFile)
+                : null;
+        String pdfUrl = (pdfFile != null && !pdfFile.isEmpty()) ? fileStorageService.uploadPdf(pdfFile) : null;
+
+        LessonEntity lesson = new LessonEntity();
+        lesson.setChapterId(chapterId);
+        lesson.setLessonName(lessonName.trim());
+        lesson.setContent(content);
+        lesson.setVideoUrl(videoUrl);
+        lesson.setPdfUrl(pdfUrl);
+        lesson.setDuration(duration);
+        lesson.setStatus(status != null ? status : "Đã xuất bản");
+        lesson.setType(type);
+
+        LessonEntity saved = lessonRepository.save(lesson);
+
+        return CreateLessonResponse.builder()
+                .id(saved.getId())
+                .lessonName(saved.getLessonName())
+                .chapterName(chapter.getChapterName())
+                .videoUrl(saved.getVideoUrl())
+                .pdfUrl(saved.getPdfUrl())
+                .message("Thêm bài học và upload file thành công.")
+                .build();
+    }
+
+    @Transactional
+    public CreateLessonResponse updateLesson(Integer id, UpdateLessonRequest request) {
+        LessonEntity lesson = lessonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
+
+        ChapterEntity chapter = null;
+        if (request.getChapterId() != null) {
+            chapter = chapterRepository.findById(request.getChapterId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + request.getChapterId()));
+            lesson.setChapterId(request.getChapterId());
+        } else {
+            chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        }
+
+        if (request.getLessonName() != null && !request.getLessonName().isBlank()) {
+            lesson.setLessonName(request.getLessonName().trim());
+        }
+        if (request.getContent() != null) {
+            lesson.setContent(request.getContent());
+        }
+        if (request.getVideoUrl() != null) {
+            lesson.setVideoUrl(request.getVideoUrl());
+        }
+        if (request.getPdfUrl() != null) {
+            lesson.setPdfUrl(request.getPdfUrl());
+        }
+        if (request.getDuration() != null) {
+            lesson.setDuration(request.getDuration());
+        }
+        if (request.getStatus() != null) {
+            lesson.setStatus(request.getStatus());
+        }
+        if (request.getType() != null) {
+            lesson.setType(request.getType());
+        }
+
+        LessonEntity saved = lessonRepository.save(lesson);
+
+        return CreateLessonResponse.builder()
+                .id(saved.getId())
+                .lessonName(saved.getLessonName())
+                .chapterName(chapter != null ? chapter.getChapterName() : "")
+                .videoUrl(saved.getVideoUrl())
+                .pdfUrl(saved.getPdfUrl())
+                .message("Cập nhật bài học thành công.")
+                .build();
+    }
+
+    @Transactional
+    public CreateLessonResponse updateLessonWithUpload(
+            Integer id,
+            Integer chapterId,
+            String lessonName,
+            String content,
+            String duration,
+            String status,
+            String type,
+            MultipartFile videoFile,
+            MultipartFile pdfFile) throws IOException {
+
+        LessonEntity lesson = lessonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
+
+        ChapterEntity chapter = null;
+        if (chapterId != null) {
+            chapter = chapterRepository.findById(chapterId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + chapterId));
+            lesson.setChapterId(chapterId);
+        } else {
+            chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        }
+
+        if (lessonName != null && !lessonName.isBlank()) {
+            lesson.setLessonName(lessonName.trim());
+        }
+        if (content != null) {
+            lesson.setContent(content);
+        }
+        if (duration != null) {
+            lesson.setDuration(duration);
+        }
+        if (status != null) {
+            lesson.setStatus(status);
+        }
+        if (type != null) {
+            lesson.setType(type);
+        }
+
+        if (videoFile != null && !videoFile.isEmpty()) {
+            String videoUrl = fileStorageService.uploadVideo(videoFile);
+            lesson.setVideoUrl(videoUrl);
+        }
+        if (pdfFile != null && !pdfFile.isEmpty()) {
+            String pdfUrl = fileStorageService.uploadPdf(pdfFile);
+            lesson.setPdfUrl(pdfUrl);
+        }
+
+        LessonEntity saved = lessonRepository.save(lesson);
+
+        return CreateLessonResponse.builder()
+                .id(saved.getId())
+                .lessonName(saved.getLessonName())
+                .chapterName(chapter != null ? chapter.getChapterName() : "")
+                .videoUrl(saved.getVideoUrl())
+                .pdfUrl(saved.getPdfUrl())
+                .message("Cập nhật bài học và upload file thành công.")
+                .build();
+    }
+
+    @Transactional
+    public String deleteLesson(Integer id) {
+        if (!lessonRepository.existsById(id)) {
+            throw new RuntimeException("Không tìm thấy bài học với ID: " + id);
+        }
+        lessonRepository.deleteById(id);
+        return "Đã xóa thành công bài học ID: " + id;
+    }
+
+    public LessonResponseDTO getLessonById(Integer id) {
+        LessonEntity lesson = lessonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
+
+        ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        String chapterName = "";
+        String subjectName = "";
+        String gradeName = "";
+
+        if (chapter != null) {
+            chapterName = chapter.getChapterName();
+            SubjectEntity sub = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
+            if (sub != null) {
+                subjectName = sub.getName();
+                gradeName = sub.getGrade();
+            }
+        }
+
+        LessonResponseDTO dto = new LessonResponseDTO();
+        dto.setId(lesson.getId());
+        dto.setLessonName(lesson.getLessonName());
+        dto.setContent(lesson.getContent());
+        dto.setVideoUrl(lesson.getVideoUrl());
+        dto.setPdfUrl(lesson.getPdfUrl());
+        dto.setDuration(lesson.getDuration());
+        dto.setStatus(lesson.getStatus());
+        dto.setType(lesson.getType());
+        dto.setChapterId(lesson.getChapterId());
+        dto.setChapterName(chapterName);
+        dto.setSubject(subjectName);
+        dto.setGrade(gradeName);
+        return dto;
+    }
+
+    // ===================== LESSON SEARCH (ADMIN) =====================
+
+    public List<LessonResponseDTO> getAllLessons(String keyword, String subject, String grade) {
+        String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+        String searchSubject = (subject != null && !subject.isBlank() && !subject.equalsIgnoreCase("all"))
+                ? FormatUtil.mapSubjectToDb(subject.trim())
+                : null;
+        String searchGrade = (grade != null && !grade.isBlank() && !grade.equalsIgnoreCase("all"))
+                ? FormatUtil.mapGradeToDb(grade.trim())
+                : null;
+
+        List<LessonEntity> lessons = lessonRepository.searchLessons(searchKeyword, searchSubject, searchGrade);
+
+        return lessons.stream().map(lesson -> {
+            String chapterName = "";
+            String subjectName = "";
+            String gradeName = "";
+
+            if (lesson.getChapterId() > 0) {
+                ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+                if (chapter != null) {
+                    chapterName = chapter.getChapterName();
+                    SubjectEntity sub = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
+                    if (sub != null) {
+                        subjectName = sub.getName();
+                        gradeName = sub.getGrade();
+                    }
+                }
+            }
+
+            LessonResponseDTO dto = new LessonResponseDTO();
+            dto.setId(lesson.getId());
+            dto.setLessonName(lesson.getLessonName());
+            dto.setContent(lesson.getContent());
+            dto.setVideoUrl(lesson.getVideoUrl());
+            dto.setPdfUrl(lesson.getPdfUrl());
+            dto.setDuration(lesson.getDuration());
+            dto.setStatus(lesson.getStatus());
+            dto.setType(lesson.getType());
+            dto.setChapterId(lesson.getChapterId());
+            dto.setChapterName(chapterName);
+            dto.setSubject(subjectName);
+            dto.setGrade(gradeName);
+            return dto;
+        }).toList();
+    }
+
+    // ===================== CHAPTERS (ADMIN) =====================
+
+    public List<ChapterEntity> getChapters(String subject, String grade) {
+        String dbSubject = FormatUtil.mapSubjectToDb(subject);
+        String dbGrade = FormatUtil.mapGradeToDb(grade);
+
+        SubjectEntity sub = subjectRepository.findByNameAndGrade(dbSubject, dbGrade)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy môn học: " + subject + " lớp " + grade));
+
+        return chapterRepository.findBySubjectIdOrderByOrderNumberAsc(sub.getId());
+    }
+
+    @Transactional
+    public ChapterEntity createChapter(CreateChapterRequest request) {
+        String dbSubject = FormatUtil.mapSubjectToDb(request.getSubjectName());
+        String dbGrade = FormatUtil.mapGradeToDb(request.getGrade());
+
+        SubjectEntity sub = subjectRepository.findByNameAndGrade(dbSubject, dbGrade)
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy môn học: " + request.getSubjectName() + " lớp " + request.getGrade()));
+
+        ChapterEntity chapter = new ChapterEntity();
+        chapter.setSubjectId(sub.getId());
+        chapter.setChapterName(request.getChapterName());
+        chapter.setOrderNumber(request.getOrderNumber() > 0 ? request.getOrderNumber() : 1);
+
+        return chapterRepository.save(chapter);
     }
 }

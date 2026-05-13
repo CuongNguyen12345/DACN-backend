@@ -1,7 +1,5 @@
 package com.cuong.backend.config;
 
-import java.time.Duration;
-
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

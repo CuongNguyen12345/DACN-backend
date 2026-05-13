@@ -30,4 +30,13 @@ public class LessonEntity {
 
     @Column(name = "pdf_url")
     String pdfUrl;
+
+    @Column(name = "duration")
+    String duration;
+
+    @Column(name = "status")
+    String status;
+
+    @Column(name = "type")
+    String type;
 }

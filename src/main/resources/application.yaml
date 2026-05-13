@@ -28,4 +28,13 @@ spring:
           auth: true
           starttls:
             enable: true
-  
+  # Cấu hình upload file multipart
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB      # Kích thước tối đa mỗi file
+      max-request-size: 510MB   # Kích thước tối đa toàn bộ request
+
+# Thư mục lưu file upload (tương đối so với thư mục chạy server)
+app:
+  upload-dir: uploads
