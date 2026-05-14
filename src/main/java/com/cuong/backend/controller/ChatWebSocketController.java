@@ -17,20 +17,16 @@ public class ChatWebSocketController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(MessagePayload payload) {
-        // Process and save the message
         SupportMessageDto savedMessage = supportService.processMessage(payload);
 
-        // Broadcast to the specific request channel (so both student and admin/teacher viewing the ticket get it)
         messagingTemplate.convertAndSend("/topic/support/request/" + savedMessage.getRequestId(), savedMessage);
 
-        // Also broadcast to the generic role channel for notifications (optional)
         if ("SYSTEM".equals(savedMessage.getRequestType())) {
             messagingTemplate.convertAndSend("/topic/support/admin", savedMessage);
         } else if ("ACADEMIC".equals(savedMessage.getRequestType())) {
             messagingTemplate.convertAndSend("/topic/support/teacher", savedMessage);
         }
         
-        // Send back to sender to sync requestId if it was null
         messagingTemplate.convertAndSend("/topic/support/user/" + payload.getSenderId(), savedMessage);
 
         if (savedMessage.getSenderId() != savedMessage.getRequestUserId()) {
