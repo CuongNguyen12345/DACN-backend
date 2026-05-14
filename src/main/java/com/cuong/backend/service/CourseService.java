@@ -4,6 +4,7 @@ import com.cuong.backend.entity.ChapterEntity;
 import com.cuong.backend.entity.LessonEntity;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.entity.UserProgressEntity;
+import com.cuong.backend.model.response.BookmarkedLessonResponseDTO;
 import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
@@ -214,7 +215,7 @@ public class CourseService {
     @Transactional
     public void markLessonCompleted(long userId, int lessonId) {
         UserProgressEntity progress = userProgressRepository
-                .findByUserIdAndLessonId(userId, lessonId)
+                .findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId)
                 .orElseGet(() -> {
                     UserProgressEntity p = new UserProgressEntity();
                     p.setUserId(userId);
@@ -234,7 +235,7 @@ public class CourseService {
     @Transactional
     public void saveWatchTime(long userId, int lessonId, int time) {
         UserProgressEntity progress = userProgressRepository
-                .findByUserIdAndLessonId(userId, lessonId)
+                .findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId)
                 .orElseGet(() -> {
                     UserProgressEntity p = new UserProgressEntity();
                     p.setUserId(userId);
@@ -247,9 +248,89 @@ public class CourseService {
     }
 
     public Integer getLastWatchedTime(long userId, int lessonId) {
-        return userProgressRepository.findByUserIdAndLessonId(userId, lessonId)
+        return userProgressRepository.findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId)
                 .map(UserProgressEntity::getLastWatchedTime)
                 .orElse(0);
+    }
+
+    @Transactional
+    public boolean setLessonBookmarked(long userId, int lessonId, boolean bookmarked) {
+        java.util.Optional<UserProgressEntity> existingProgress =
+                userProgressRepository.findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId);
+
+        if (existingProgress.isEmpty() && !bookmarked) {
+            return false;
+        }
+
+        if (existingProgress.isEmpty() && !lessonRepository.existsById(lessonId)) {
+            throw new RuntimeException("KhÃ´ng tÃ¬m tháº¥y bÃ i há»c ID: " + lessonId);
+        }
+
+        UserProgressEntity progress = existingProgress.orElseGet(() -> {
+            UserProgressEntity p = new UserProgressEntity();
+            p.setUserId(userId);
+            p.setLessonId(lessonId);
+            return p;
+        });
+
+        progress.setBookmarked(bookmarked);
+        progress.setBookmarkedAt(bookmarked ? new Date() : null);
+        userProgressRepository.save(progress);
+        return bookmarked;
+    }
+
+    private boolean setLessonBookmarkedLegacy(long userId, int lessonId, boolean bookmarked) {
+        if (bookmarked && !lessonRepository.existsById(lessonId)) {
+            throw new RuntimeException("Không tìm thấy bài học ID: " + lessonId);
+        }
+
+        UserProgressEntity progress = userProgressRepository
+                .findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId)
+                .orElseGet(() -> {
+                    UserProgressEntity p = new UserProgressEntity();
+                    p.setUserId(userId);
+                    p.setLessonId(lessonId);
+                    return p;
+                });
+
+        progress.setBookmarked(bookmarked);
+        progress.setBookmarkedAt(bookmarked ? new Date() : null);
+        userProgressRepository.save(progress);
+        return bookmarked;
+    }
+
+    public boolean isLessonBookmarked(long userId, int lessonId) {
+        return userProgressRepository.findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId)
+                .map(UserProgressEntity::isBookmarked)
+                .orElse(false);
+    }
+
+    public List<BookmarkedLessonResponseDTO> getBookmarkedLessons(long userId) {
+        return userProgressRepository.findBookmarkedByUserIdOrderByBookmarkedAtDesc(userId).stream()
+                .map(this::toBookmarkedLessonResponse)
+                .flatMap(java.util.Optional::stream)
+                .collect(Collectors.toList());
+    }
+
+    private java.util.Optional<BookmarkedLessonResponseDTO> toBookmarkedLessonResponse(UserProgressEntity progress) {
+        LessonEntity lesson = lessonRepository.findById(progress.getLessonId()).orElse(null);
+        if (lesson == null) return java.util.Optional.empty();
+
+        ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        SubjectEntity subject = chapter == null ? null : subjectRepository.findById(chapter.getSubjectId()).orElse(null);
+
+        return java.util.Optional.of(BookmarkedLessonResponseDTO.builder()
+                .id(lesson.getId())
+                .lessonName(lesson.getLessonName())
+                .chapterName(chapter == null ? null : chapter.getChapterName())
+                .subjectName(subject == null ? null : subject.getName())
+                .gradeLevel(subject == null ? null : subject.getGrade())
+                .subjectBadge(subject == null ? null : subject.getName() + " " + subject.getGrade())
+                .videoUrl(lesson.getVideoUrl())
+                .pdfUrl(lesson.getPdfUrl())
+                .lastWatchedTime(progress.getLastWatchedTime())
+                .bookmarkedAt(progress.getBookmarkedAt())
+                .build());
     }
 
     public StudyActivityResponse getStudyActivity(long userId) {
