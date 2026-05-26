@@ -21,6 +21,7 @@ import com.cuong.backend.repository.QuizRepository;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.repository.TopicRepository;
 import com.cuong.backend.util.FormatUtil;
+import com.cuong.backend.util.OptionLabelUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +35,6 @@ import java.util.Set;
 @Service
 public class QuizService {
 
-    private static final String[] OPTION_LABELS = { "A", "B", "C", "D", "E", "F" };
     private final QuizRepository quizRepository;
     private final TopicRepository topicRepository;
     private final SubjectRepository subjectRepository;
@@ -297,7 +297,7 @@ public class QuizService {
         int index = 0;
         for (QuestionOptionEntity option : question.getOptions()) {
             if (option.isCorrect()) {
-                return index < OPTION_LABELS.length ? OPTION_LABELS[index] : String.valueOf(index + 1);
+                return OptionLabelUtil.labelForIndex(index);
             }
             index++;
         }
@@ -376,7 +376,7 @@ public class QuizService {
             int index = 0;
             for (QuestionOptionEntity option : question.getOptions()) {
                 options.add(QuizDetailResponseDTO.OptionItem.builder()
-                        .label(index < OPTION_LABELS.length ? OPTION_LABELS[index] : String.valueOf(index + 1))
+                        .label(OptionLabelUtil.labelForIndex(index))
                         .content(option.getContent())
                         .correct(option.isCorrect())
                         .build());

@@ -44,7 +44,7 @@ public class ExamController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id,
             @RequestBody ExamSubmitRequest request) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return examResultService.submitExam(id, userId, request);
     }
 
@@ -53,7 +53,7 @@ public class ExamController {
             @RequestHeader("Authorization") String token,
             @RequestParam(required = false) String subject,
             @RequestParam(required = false) String keyword) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return examResultService.getHistory(userId, subject, keyword);
     }
 
@@ -61,7 +61,7 @@ public class ExamController {
     public ExamResultDetailResponse getExamResultDetail(
             @RequestHeader("Authorization") String token,
             @PathVariable Long resultId) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return examResultService.getResultDetail(userId, resultId);
     }
 }

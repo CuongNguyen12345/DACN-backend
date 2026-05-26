@@ -48,13 +48,12 @@ import com.cuong.backend.repository.LessonRepository;
 import com.cuong.backend.repository.ChapterRepository;
 
 import com.cuong.backend.util.FormatUtil;
+import com.cuong.backend.util.PasswordUtil;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -717,8 +716,6 @@ public class AdminService {
             throw new RuntimeException("Vui lòng chọn ít nhất một lớp để phân công.");
         }
 
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
-
         String gradesStr = request.getGrades().stream()
                 .map(g -> g.replace("Lớp ", "").trim())
                 .collect(java.util.stream.Collectors.joining(","));
@@ -726,7 +723,7 @@ public class AdminService {
         UserEntity teacher = new UserEntity();
         teacher.setUserName(request.getName());
         teacher.setEmail(request.getEmail());
-        teacher.setPassword(passwordEncoder.encode(request.getPassword()));
+        teacher.setPassword(PasswordUtil.encode(request.getPassword()));
         teacher.setRole("TEACHER");
         teacher.setSchoolName(FormatUtil.mapSubjectToDb(request.getSubject()));
         teacher.setGrade(gradesStr);

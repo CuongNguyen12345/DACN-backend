@@ -44,7 +44,7 @@ public class RoadmapService {
     @Transactional
     public void saveFromAssessment(String token,
                                    List<Map<String, Object>> questionResults) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
 
         // Nhóm câu hỏi theo topicId
         Map<Integer, long[]> topicStats = new LinkedHashMap<>();
@@ -114,7 +114,7 @@ public class RoadmapService {
     }
 
     public List<Map<String, Object>> getRoadmap(String token, String subject, String grade) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         String dbSubject = FormatUtil.mapSubjectToDb(subject);
         String dbGrade = FormatUtil.mapGradeToDb(grade);
 

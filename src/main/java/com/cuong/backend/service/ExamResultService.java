@@ -14,6 +14,7 @@ import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.ExamResultRepository;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.util.FormatUtil;
+import com.cuong.backend.util.OptionLabelUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,8 +30,6 @@ import java.util.Map;
 
 @Service
 public class ExamResultService {
-    private static final String[] OPTION_LABELS = {"A", "B", "C", "D", "E", "F"};
-
     private final ExamRepository examRepository;
     private final ExamResultRepository examResultRepository;
     private final SubjectRepository subjectRepository;
@@ -128,7 +127,7 @@ public class ExamResultService {
 
         int index = 0;
         for (QuestionOptionEntity option : question.getOptions()) {
-            String label = index < OPTION_LABELS.length ? OPTION_LABELS[index] : String.valueOf(index);
+            String label = OptionLabelUtil.labelForIndex(index);
             options.add(ExamResultDetailResponse.OptionResult.builder()
                     .label(label)
                     .content(option.getContent())

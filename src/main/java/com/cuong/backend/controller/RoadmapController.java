@@ -1,6 +1,7 @@
 package com.cuong.backend.controller;
 
 import com.cuong.backend.service.RoadmapService;
+import com.cuong.backend.util.AuthHeaderUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +27,7 @@ public class RoadmapController {
             @RequestHeader("Authorization") String authHeader,
             @RequestParam String subject,
             @RequestParam String grade) {
-        String token = authHeader.replace("Bearer ", "");
+        String token = AuthHeaderUtil.stripBearerPrefix(authHeader);
         return ResponseEntity.ok(roadmapService.getRoadmap(token, subject, grade));
     }
 
@@ -39,7 +40,7 @@ public class RoadmapController {
     public ResponseEntity<Void> syncAssessment(
             @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> body) {
-        String token = authHeader.replace("Bearer ", "");
+        String token = AuthHeaderUtil.stripBearerPrefix(authHeader);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> questionResults =
                 (List<Map<String, Object>>) body.get("questionResults");

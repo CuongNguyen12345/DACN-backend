@@ -11,12 +11,12 @@ import com.cuong.backend.model.request.UpdateProfileRequest;
 import com.cuong.backend.model.request.VerifyOTPRequest;
 import com.cuong.backend.model.response.AuthenticationResponse;
 import com.cuong.backend.repository.UserRepository;
+import com.cuong.backend.util.AuthHeaderUtil;
 import com.cuong.backend.util.JwtUtil;
+import com.cuong.backend.util.PasswordUtil;
 
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -43,8 +43,7 @@ public class UserService {
         entity.setUserName(request.getUsername());
         entity.setEmail(request.getEmail());
 
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
-        entity.setPassword(passwordEncoder.encode(request.getPassword()));
+        entity.setPassword(PasswordUtil.encode(request.getPassword()));
 
         return repository.save(entity);
     }
@@ -63,8 +62,7 @@ public class UserService {
             throw new AppException(ErrorCode.USER_NOT_FOUND);
         }
 
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!PasswordUtil.matches(request.getPassword(), user.getPassword())) {
             throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
@@ -90,8 +88,7 @@ public class UserService {
         newUser.setRole("STUDENT");
 
         // Generate random password as password is required
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
-        newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        newUser.setPassword(PasswordUtil.encode(UUID.randomUUID().toString()));
 
         UserEntity savedUser = repository.save(newUser);
         String token = jwtUtil.generateToken(savedUser.getEmail());
@@ -135,8 +132,7 @@ public class UserService {
         // Generate random password
         String newPassword = UUID.randomUUID().toString().substring(0, 8);
 
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
-        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPassword(PasswordUtil.encode(newPassword));
         user.setOtp(null); // Clear OTP
 
         repository.save(user);
@@ -153,9 +149,7 @@ public class UserService {
     }
 
     public UserEntity getProfile(String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
+        token = AuthHeaderUtil.stripBearerPrefix(token);
         try {
             String email = jwtUtil.extractEmail(token);
             UserEntity user = repository.findOneByEmail(email);
@@ -168,10 +162,12 @@ public class UserService {
         }
     }
 
+    public long getUserId(String token) {
+        return getProfile(token).getId();
+    }
+
     public UserEntity updateProfile(String token, UpdateProfileRequest request) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
+        token = AuthHeaderUtil.stripBearerPrefix(token);
         try {
             String email = jwtUtil.extractEmail(token);
             UserEntity user = repository.findOneByEmail(email);

@@ -83,7 +83,7 @@ public class CourseController {
             @RequestHeader("Authorization") String token,
             @PathVariable Long id,
             @RequestBody QuizSubmitRequest request) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return quizService.submitQuiz(id, userId, request);
     }
 
@@ -95,7 +95,7 @@ public class CourseController {
     public List<Integer> getProgress(
             @RequestHeader("Authorization") String token,
             @RequestParam List<Integer> lessonIds) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return courseService.getCompletedLessonIds(userId, lessonIds);
     }
 
@@ -106,7 +106,7 @@ public class CourseController {
     public void markComplete(
             @RequestHeader("Authorization") String token,
             @RequestParam Integer lessonId) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         courseService.markLessonCompleted(userId, lessonId);
     }
 
@@ -118,7 +118,7 @@ public class CourseController {
             @RequestHeader("Authorization") String token,
             @RequestParam Integer lessonId,
             @RequestParam Integer time) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         courseService.saveWatchTime(userId, lessonId, time);
     }
 
@@ -129,7 +129,7 @@ public class CourseController {
     public Integer getWatchTime(
             @RequestHeader("Authorization") String token,
             @RequestParam Integer lessonId) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         Integer time = courseService.getLastWatchedTime(userId, lessonId);
         return time != null ? time : 0;
     }
@@ -137,14 +137,14 @@ public class CourseController {
     @GetMapping("/progress/study-activity")
     public StudyActivityResponse getStudyActivity(
             @RequestHeader("Authorization") String token) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return courseService.getStudyActivity(userId);
     }
 
     @GetMapping("/bookmarks")
     public List<BookmarkedLessonResponseDTO> getBookmarkedLessons(
             @RequestHeader("Authorization") String token) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return courseService.getBookmarkedLessons(userId);
     }
 
@@ -152,7 +152,7 @@ public class CourseController {
     public Map<String, Boolean> getLessonBookmarkStatus(
             @RequestHeader("Authorization") String token,
             @PathVariable Integer lessonId) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return Map.of("bookmarked", courseService.isLessonBookmarked(userId, lessonId));
     }
 
@@ -160,7 +160,7 @@ public class CourseController {
     public Map<String, Boolean> bookmarkLesson(
             @RequestHeader("Authorization") String token,
             @PathVariable Integer lessonId) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return Map.of("bookmarked", courseService.setLessonBookmarked(userId, lessonId, true));
     }
 
@@ -168,7 +168,7 @@ public class CourseController {
     public Map<String, Boolean> removeLessonBookmark(
             @RequestHeader("Authorization") String token,
             @PathVariable Integer lessonId) {
-        long userId = userService.getProfile(token).getId();
+        long userId = userService.getUserId(token);
         return Map.of("bookmarked", courseService.setLessonBookmarked(userId, lessonId, false));
     }
 }
