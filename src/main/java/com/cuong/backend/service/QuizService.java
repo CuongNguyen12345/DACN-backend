@@ -11,6 +11,7 @@ import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.entity.TopicEntity;
 import com.cuong.backend.model.request.QuizRequest;
 import com.cuong.backend.model.request.QuizSubmitRequest;
+import com.cuong.backend.model.response.CoinRewardResponse;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
 import com.cuong.backend.model.response.QuizResponseDTO;
 import com.cuong.backend.model.response.QuizSubmitResponseDTO;
@@ -22,6 +23,7 @@ import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.repository.TopicRepository;
 import com.cuong.backend.util.FormatUtil;
 import com.cuong.backend.util.OptionLabelUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,27 @@ public class QuizService {
     private final QuestionRepository questionRepository;
     private final ChapterRepository chapterRepository;
     private final RoadmapService roadmapService;
+    private final ShopService shopService;
+
+    @Autowired
+    public QuizService(
+            QuizRepository quizRepository,
+            TopicRepository topicRepository,
+            SubjectRepository subjectRepository,
+            LessonRepository lessonRepository,
+            QuestionRepository questionRepository,
+            ChapterRepository chapterRepository,
+            RoadmapService roadmapService,
+            ShopService shopService) {
+        this.quizRepository = quizRepository;
+        this.topicRepository = topicRepository;
+        this.subjectRepository = subjectRepository;
+        this.lessonRepository = lessonRepository;
+        this.questionRepository = questionRepository;
+        this.chapterRepository = chapterRepository;
+        this.roadmapService = roadmapService;
+        this.shopService = shopService;
+    }
 
     public QuizService(
             QuizRepository quizRepository,
@@ -51,13 +74,7 @@ public class QuizService {
             QuestionRepository questionRepository,
             ChapterRepository chapterRepository,
             RoadmapService roadmapService) {
-        this.quizRepository = quizRepository;
-        this.topicRepository = topicRepository;
-        this.subjectRepository = subjectRepository;
-        this.lessonRepository = lessonRepository;
-        this.questionRepository = questionRepository;
-        this.chapterRepository = chapterRepository;
-        this.roadmapService = roadmapService;
+        this(quizRepository, topicRepository, subjectRepository, lessonRepository, questionRepository, chapterRepository, roadmapService, null);
     }
 
     @Transactional
@@ -201,6 +218,9 @@ public class QuizService {
         double masteryScore = masteryGain > 0
                 ? roadmapService.increaseMastery(userId, quiz.getTopicId(), masteryGain)
                 : roadmapService.increaseMastery(userId, quiz.getTopicId(), 0);
+        CoinRewardResponse coinReward = shopService == null
+                ? CoinRewardResponse.builder().coinsEarned(0).coinBalance(0).message("").rewarded(false).build()
+                : shopService.rewardQuizSubmission(userId, quizId, passed, scorePercent);
 
         return QuizSubmitResponseDTO.builder()
                 .correct(correct)
@@ -211,6 +231,9 @@ public class QuizService {
                 .difficulty(formatDifficulty(quiz.getDifficulty()))
                 .masteryGain(masteryGain)
                 .masteryScore(masteryScore)
+                .coinsEarned(coinReward.getCoinsEarned())
+                .coinBalance(coinReward.getCoinBalance())
+                .coinMessage(coinReward.getMessage())
                 .build();
     }
 

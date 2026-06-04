@@ -50,6 +50,18 @@ public class UserEntity {
     @Column(name = "current_streak")
     Integer currentStreak;
 
+    @Column(name = "coin_balance")
+    Integer coinBalance = 0;
+
+    @Column(name = "avatar_url")
+    String avatar;
+
+    @Column(name = "equipped_decoration")
+    String equippedDecoration;
+
+    @Column(name = "equipped_life_icon")
+    String equippedLifeIcon;
+
     @Column(name = "createddate")
     @CreatedDate
     Date createdDate;

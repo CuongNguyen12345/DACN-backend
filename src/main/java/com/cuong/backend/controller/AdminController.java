@@ -4,10 +4,13 @@ import com.cuong.backend.model.request.AddQuestionListRequest;
 import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.CreateChapterRequest;
 import com.cuong.backend.model.request.CreateLessonRequest;
+import com.cuong.backend.model.request.CreateLessonUploadRequest;
 import com.cuong.backend.entity.ChapterEntity;
 import com.cuong.backend.model.request.UpdateLessonRequest;
+import com.cuong.backend.model.request.UpdateLessonUploadRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.QuizRequest;
+import com.cuong.backend.model.request.ShopItemRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.AiChatRequest;
 import com.cuong.backend.model.response.AiChatResponse;
@@ -18,6 +21,7 @@ import com.cuong.backend.model.response.ExamResponseDTO;
 import com.cuong.backend.model.response.DashboardOverview;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
 import com.cuong.backend.model.response.QuizResponseDTO;
+import com.cuong.backend.model.response.ShopItemResponse;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.QuestionDetailResponseDTO;
 import com.cuong.backend.model.response.QuestionResponseDTO;
@@ -27,6 +31,7 @@ import com.cuong.backend.model.response.UserAccountDTO;
 import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.service.AdminService;
 import com.cuong.backend.service.QuizService;
+import com.cuong.backend.service.ShopService;
 import com.cuong.backend.service.StatisticsService;
 import com.cuong.backend.util.FormatUtil;
 
@@ -34,7 +39,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.http.MediaType;
 
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -49,17 +53,20 @@ public class AdminController {
 
     private final AdminService adminService;
     private final QuizService quizService;
+    private final ShopService shopService;
     private final StatisticsService statisticsService;
     private final SubjectRepository subjectRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public AdminController(AdminService adminService,
                            QuizService quizService,
+                           ShopService shopService,
                            StatisticsService statisticsService,
                            SubjectRepository subjectRepository,
                            SimpMessagingTemplate messagingTemplate) {
         this.adminService = adminService;
         this.quizService = quizService;
+        this.shopService = shopService;
         this.statisticsService = statisticsService;
         this.subjectRepository = subjectRepository;
         this.messagingTemplate = messagingTemplate;
@@ -185,6 +192,28 @@ public class AdminController {
         quizService.deleteQuiz(id);
     }
 
+    // ---------- Shop Items ----------
+
+    @GetMapping("/shop-items")
+    public List<ShopItemResponse> getShopItems() {
+        return shopService.getAdminShopItems();
+    }
+
+    @PostMapping("/shop-items")
+    public ShopItemResponse createShopItem(@RequestBody ShopItemRequest request) {
+        return shopService.createShopItem(request);
+    }
+
+    @PutMapping("/shop-items/{id}")
+    public ShopItemResponse updateShopItem(@PathVariable Long id, @RequestBody ShopItemRequest request) {
+        return shopService.updateShopItem(id, request);
+    }
+
+    @DeleteMapping("/shop-items/{id}")
+    public void deactivateShopItem(@PathVariable Long id) {
+        shopService.deactivateShopItem(id);
+    }
+
     // ---------- Teacher Account ----------
 
     @PostMapping("/create-teacher")
@@ -232,16 +261,8 @@ public class AdminController {
 
     @PostMapping(value = "/lessons/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CreateLessonResponse createLessonWithUpload(
-            @RequestParam int chapterId,
-            @RequestParam String lessonName,
-            @RequestParam(required = false) String content,
-            @RequestParam(required = false) String duration,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) MultipartFile videoFile,
-            @RequestParam(required = false) MultipartFile pdfFile) throws IOException {
-        return adminService.createLessonWithUpload(chapterId, lessonName, content, duration, status, type, videoFile,
-                pdfFile);
+            @ModelAttribute CreateLessonUploadRequest request) throws IOException {
+        return adminService.createLessonWithUpload(request);
     }
 
     @PutMapping("/lessons/{id}")
@@ -254,16 +275,8 @@ public class AdminController {
     @PutMapping(value = "/lessons/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CreateLessonResponse updateLessonWithUpload(
             @PathVariable Integer id,
-            @RequestParam(required = false) Integer chapterId,
-            @RequestParam(required = false) String lessonName,
-            @RequestParam(required = false) String content,
-            @RequestParam(required = false) String duration,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) MultipartFile videoFile,
-            @RequestParam(required = false) MultipartFile pdfFile) throws IOException {
-        return adminService.updateLessonWithUpload(id, chapterId, lessonName, content, duration, status, type,
-                videoFile, pdfFile);
+            @ModelAttribute UpdateLessonUploadRequest request) throws IOException {
+        return adminService.updateLessonWithUpload(id, request);
     }
 
     @DeleteMapping("/lessons/{id}")

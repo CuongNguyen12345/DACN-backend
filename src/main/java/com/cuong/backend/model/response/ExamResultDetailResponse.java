@@ -20,6 +20,9 @@ public class ExamResultDetailResponse {
     private int totalQuestions;
     private int durationSeconds;
     private Date submittedAt;
+    private int coinsEarned;
+    private int coinBalance;
+    private String coinMessage;
     private List<QuestionResult> questions;
 
     @Data

@@ -14,4 +14,7 @@ public class QuizSubmitResponseDTO {
     private String difficulty;
     private double masteryGain;
     private double masteryScore;
+    private int coinsEarned;
+    private int coinBalance;
+    private String coinMessage;
 }

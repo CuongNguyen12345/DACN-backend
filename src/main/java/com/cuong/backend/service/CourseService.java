@@ -6,6 +6,7 @@ import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.entity.UserProgressEntity;
 import com.cuong.backend.model.response.BookmarkedLessonResponseDTO;
 import com.cuong.backend.model.response.ChapterResponseDTO;
+import com.cuong.backend.model.response.CoinRewardResponse;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
 import com.cuong.backend.model.response.StudyActivityResponse;
@@ -15,6 +16,7 @@ import com.cuong.backend.repository.SubjectRepository;
 import com.cuong.backend.repository.UserProgressRepository;
 import jakarta.persistence.criteria.Predicate;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,17 +34,29 @@ public class CourseService {
     private final LessonRepository lessonRepository;
     private final UserProgressRepository userProgressRepository;
     private final StudyActivityService studyActivityService;
+    private final ShopService shopService;
+
+    @Autowired
+    public CourseService(SubjectRepository subjectRepository,
+                         ChapterRepository chapterRepository,
+                         LessonRepository lessonRepository,
+                         UserProgressRepository userProgressRepository,
+                         StudyActivityService studyActivityService,
+                         ShopService shopService) {
+        this.subjectRepository = subjectRepository;
+        this.chapterRepository = chapterRepository;
+        this.lessonRepository = lessonRepository;
+        this.userProgressRepository = userProgressRepository;
+        this.studyActivityService = studyActivityService;
+        this.shopService = shopService;
+    }
 
     public CourseService(SubjectRepository subjectRepository,
                          ChapterRepository chapterRepository,
                          LessonRepository lessonRepository,
                          UserProgressRepository userProgressRepository,
                          StudyActivityService studyActivityService) {
-        this.subjectRepository = subjectRepository;
-        this.chapterRepository = chapterRepository;
-        this.lessonRepository = lessonRepository;
-        this.userProgressRepository = userProgressRepository;
-        this.studyActivityService = studyActivityService;
+        this(subjectRepository, chapterRepository, lessonRepository, userProgressRepository, studyActivityService, null);
     }
     
     public PageResponse<ChapterResponseDTO> getCourseData(String grade, String subjectName, String keyword, int page, int size) {
@@ -213,7 +227,7 @@ public class CourseService {
      * Nếu bản ghi đã tồn tại thì chỉ cập nhật, không tạo mới.
      */
     @Transactional
-    public void markLessonCompleted(long userId, int lessonId) {
+    public CoinRewardResponse markLessonCompleted(long userId, int lessonId) {
         UserProgressEntity progress = userProgressRepository
                 .findFirstByUserIdAndLessonIdOrderByIdAsc(userId, lessonId)
                 .orElseGet(() -> {
@@ -230,6 +244,16 @@ public class CourseService {
         }
 
         studyActivityService.recordStudyActivity(userId, "VIDEO_90_PERCENT");
+
+        if (shopService == null) {
+            return CoinRewardResponse.builder()
+                    .rewarded(false)
+                    .coinsEarned(0)
+                    .coinBalance(0)
+                    .message("")
+                    .build();
+        }
+        return shopService.rewardLessonCompletion(userId, lessonId);
     }
 
     @Transactional

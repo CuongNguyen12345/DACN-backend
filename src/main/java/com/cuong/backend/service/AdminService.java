@@ -22,9 +22,13 @@ import com.cuong.backend.model.request.CreateExamRequest;
 import com.cuong.backend.model.request.CreateTeacherRequest;
 import com.cuong.backend.model.request.UpdateQuestionRequest;
 import com.cuong.backend.model.request.CreateLessonRequest;
+import com.cuong.backend.model.request.CreateLessonUploadRequest;
 import com.cuong.backend.model.request.CreateChapterRequest;
 import com.cuong.backend.model.request.UpdateLessonRequest;
+import com.cuong.backend.model.request.UpdateLessonUploadRequest;
 
+import com.cuong.backend.mapper.ExamMapper;
+import com.cuong.backend.mapper.LessonMapper;
 import com.cuong.backend.model.response.CreateExamResponse;
 import com.cuong.backend.model.response.CreateLessonResponse;
 import com.cuong.backend.model.response.ExamDetailResponseDTO;
@@ -49,7 +53,6 @@ import com.cuong.backend.repository.ChapterRepository;
 
 import com.cuong.backend.util.FormatUtil;
 import com.cuong.backend.util.PasswordUtil;
-import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 import jakarta.persistence.criteria.Predicate;
@@ -75,6 +78,8 @@ public class AdminService {
     private final LessonRepository lessonRepository;
     private final ChapterRepository chapterRepository;
     private final FileStorageService fileStorageService;
+    private final LessonMapper lessonMapper;
+    private final ExamMapper examMapper;
 
     public AdminService(@Qualifier("adminModel") ChatLanguageModel aiModel,
             SubjectRepository subjectRepository,
@@ -86,7 +91,9 @@ public class AdminService {
             TopicMasteryRepository topicMasteryRepository,
             LessonRepository lessonRepository,
             ChapterRepository chapterRepository,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            LessonMapper lessonMapper,
+            ExamMapper examMapper) {
         this.aiModel = aiModel;
         this.subjectRepository = subjectRepository;
         this.questionRepository = questionRepository;
@@ -98,6 +105,8 @@ public class AdminService {
         this.lessonRepository = lessonRepository;
         this.chapterRepository = chapterRepository;
         this.fileStorageService = fileStorageService;
+        this.lessonMapper = lessonMapper;
+        this.examMapper = examMapper;
     }
 
     public String generateQuiz(String lessonContent, String base64Image) {
@@ -547,13 +556,7 @@ public class AdminService {
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy môn học " + finalSubjectName + " lớp " + finalGrade));
 
-        ExamEntity exam = new ExamEntity();
-        exam.setTitle(request.getTitle());
-        exam.setSubjectId(subjectId);
-        exam.setDuration(request.getDuration());
-        exam.setDescription(request.getDescription());
-        exam.setTotalQuestions(request.getTotalQuestions());
-        exam.setAttemptCount(0);
+        ExamEntity exam = examMapper.toEntity(request, subjectId);
 
         List<Long> numericIds = new ArrayList<>();
         if (request.getQuestionIds() != null) {
@@ -581,14 +584,7 @@ public class AdminService {
 
         examRepository.save(saved);
 
-        return CreateExamResponse.builder()
-                .id(saved.getId())
-                .title(saved.getTitle())
-                .subject(request.getSubject())
-                .grade(request.getGrade())
-                .questionCount(questions.size())
-                .message("Tạo đề thi thành công với " + questions.size() + " câu hỏi.")
-                .build();
+        return examMapper.toCreateResponse(saved, request.getSubject(), request.getGrade(), questions.size());
     }
 
     public List<ExamResponseDTO> getAllExams(String keyword, String subject, String grade) {
@@ -637,15 +633,7 @@ public class AdminService {
                 subjectName = FormatUtil.mapSubjectToFe(sOpt.get().getName());
                 gradeName = "Lớp " + sOpt.get().getGrade();
             }
-            return ExamResponseDTO.builder()
-                    .id(exam.getId())
-                    .title(exam.getTitle())
-                    .subject(subjectName)
-                    .grade(gradeName)
-                    .duration(exam.getDuration())
-                    .questionCount(exam.getQuestionItems().size())
-                    .attemptCount(exam.getAttemptCount())
-                    .build();
+            return examMapper.toResponse(exam, subjectName, gradeName, exam.getQuestionItems().size());
         }).toList();
     }
 
@@ -840,77 +828,28 @@ public class AdminService {
 
     @Transactional
     public CreateLessonResponse createLesson(CreateLessonRequest request) {
-        ChapterEntity chapter = chapterRepository.findById(request.getChapterId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + request.getChapterId()));
+        ChapterEntity chapter = resolveChapter(request.getChapterId());
+        validateLessonName(request.getLessonName());
 
-        if (request.getLessonName() == null || request.getLessonName().isBlank()) {
-            throw new IllegalArgumentException("Tên bài học không được để trống.");
-        }
-
-        LessonEntity lesson = new LessonEntity();
-        lesson.setChapterId(request.getChapterId());
-        lesson.setLessonName(request.getLessonName().trim());
-        lesson.setContent(request.getContent());
-        lesson.setVideoUrl(request.getVideoUrl());
-        lesson.setPdfUrl(request.getPdfUrl());
-        lesson.setDuration(request.getDuration());
-        lesson.setStatus(request.getStatus() != null ? request.getStatus() : "Đã xuất bản");
-        lesson.setType(request.getType());
+        LessonEntity lesson = lessonMapper.toEntity(request);
 
         LessonEntity saved = lessonRepository.save(lesson);
 
-        return CreateLessonResponse.builder()
-                .id(saved.getId())
-                .lessonName(saved.getLessonName())
-                .chapterName(chapter.getChapterName())
-                .videoUrl(saved.getVideoUrl())
-                .pdfUrl(saved.getPdfUrl())
-                .message("Thêm bài học thành công.")
-                .build();
+        return lessonMapper.toCreateResponse(saved, chapter.getChapterName(), "Thêm bài học thành công.");
     }
 
     @Transactional
-    public CreateLessonResponse createLessonWithUpload(
-            int chapterId,
-            String lessonName,
-            String content,
-            String duration,
-            String status,
-            String type,
-            MultipartFile videoFile,
-            MultipartFile pdfFile) throws IOException {
+    public CreateLessonResponse createLessonWithUpload(CreateLessonUploadRequest request) throws IOException {
+        ChapterEntity chapter = resolveChapter(request.getChapterId());
+        validateLessonName(request.getLessonName());
 
-        ChapterEntity chapter = chapterRepository.findById(chapterId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + chapterId));
-
-        if (lessonName == null || lessonName.isBlank()) {
-            throw new IllegalArgumentException("Tên bài học không được để trống.");
-        }
-
-        String videoUrl = (videoFile != null && !videoFile.isEmpty()) ? fileStorageService.uploadVideo(videoFile)
-                : null;
-        String pdfUrl = (pdfFile != null && !pdfFile.isEmpty()) ? fileStorageService.uploadPdf(pdfFile) : null;
-
-        LessonEntity lesson = new LessonEntity();
-        lesson.setChapterId(chapterId);
-        lesson.setLessonName(lessonName.trim());
-        lesson.setContent(content);
-        lesson.setVideoUrl(videoUrl);
-        lesson.setPdfUrl(pdfUrl);
-        lesson.setDuration(duration);
-        lesson.setStatus(status != null ? status : "Đã xuất bản");
-        lesson.setType(type);
+        request.setVideoUrl(uploadVideo(request));
+        request.setPdfUrl(uploadPdf(request));
+        LessonEntity lesson = lessonMapper.toEntity(request);
 
         LessonEntity saved = lessonRepository.save(lesson);
 
-        return CreateLessonResponse.builder()
-                .id(saved.getId())
-                .lessonName(saved.getLessonName())
-                .chapterName(chapter.getChapterName())
-                .videoUrl(saved.getVideoUrl())
-                .pdfUrl(saved.getPdfUrl())
-                .message("Thêm bài học và upload file thành công.")
-                .build();
+        return lessonMapper.toCreateResponse(saved, chapter.getChapterName(), "Thêm bài học và upload file thành công.");
     }
 
     @Transactional
@@ -918,108 +857,48 @@ public class AdminService {
         LessonEntity lesson = lessonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
 
-        ChapterEntity chapter = null;
+        ChapterEntity chapter;
         if (request.getChapterId() != null) {
-            chapter = chapterRepository.findById(request.getChapterId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + request.getChapterId()));
+            chapter = resolveChapter(request.getChapterId());
             lesson.setChapterId(request.getChapterId());
         } else {
             chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
         }
 
-        if (request.getLessonName() != null && !request.getLessonName().isBlank()) {
-            lesson.setLessonName(request.getLessonName().trim());
-        }
-        if (request.getContent() != null) {
-            lesson.setContent(request.getContent());
-        }
-        if (request.getVideoUrl() != null) {
-            lesson.setVideoUrl(request.getVideoUrl());
-        }
-        if (request.getPdfUrl() != null) {
-            lesson.setPdfUrl(request.getPdfUrl());
-        }
-        if (request.getDuration() != null) {
-            lesson.setDuration(request.getDuration());
-        }
-        if (request.getStatus() != null) {
-            lesson.setStatus(request.getStatus());
-        }
-        if (request.getType() != null) {
-            lesson.setType(request.getType());
-        }
+        lessonMapper.updateEntity(request, lesson);
 
         LessonEntity saved = lessonRepository.save(lesson);
 
-        return CreateLessonResponse.builder()
-                .id(saved.getId())
-                .lessonName(saved.getLessonName())
-                .chapterName(chapter != null ? chapter.getChapterName() : "")
-                .videoUrl(saved.getVideoUrl())
-                .pdfUrl(saved.getPdfUrl())
-                .message("Cập nhật bài học thành công.")
-                .build();
+        return lessonMapper.toCreateResponse(saved, chapter != null ? chapter.getChapterName() : "", "Cập nhật bài học thành công.");
     }
 
     @Transactional
-    public CreateLessonResponse updateLessonWithUpload(
-            Integer id,
-            Integer chapterId,
-            String lessonName,
-            String content,
-            String duration,
-            String status,
-            String type,
-            MultipartFile videoFile,
-            MultipartFile pdfFile) throws IOException {
-
+    public CreateLessonResponse updateLessonWithUpload(Integer id, UpdateLessonUploadRequest request) throws IOException {
         LessonEntity lesson = lessonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
 
-        ChapterEntity chapter = null;
-        if (chapterId != null) {
-            chapter = chapterRepository.findById(chapterId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + chapterId));
-            lesson.setChapterId(chapterId);
+        ChapterEntity chapter;
+        if (request.getChapterId() != null) {
+            chapter = resolveChapter(request.getChapterId());
+            lesson.setChapterId(request.getChapterId());
         } else {
             chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
         }
 
-        if (lessonName != null && !lessonName.isBlank()) {
-            lesson.setLessonName(lessonName.trim());
-        }
-        if (content != null) {
-            lesson.setContent(content);
-        }
-        if (duration != null) {
-            lesson.setDuration(duration);
-        }
-        if (status != null) {
-            lesson.setStatus(status);
-        }
-        if (type != null) {
-            lesson.setType(type);
-        }
+        lessonMapper.updateEntity(request, lesson);
 
-        if (videoFile != null && !videoFile.isEmpty()) {
-            String videoUrl = fileStorageService.uploadVideo(videoFile);
+        String videoUrl = uploadVideo(request);
+        if (videoUrl != null) {
             lesson.setVideoUrl(videoUrl);
         }
-        if (pdfFile != null && !pdfFile.isEmpty()) {
-            String pdfUrl = fileStorageService.uploadPdf(pdfFile);
+        String pdfUrl = uploadPdf(request);
+        if (pdfUrl != null) {
             lesson.setPdfUrl(pdfUrl);
         }
 
         LessonEntity saved = lessonRepository.save(lesson);
 
-        return CreateLessonResponse.builder()
-                .id(saved.getId())
-                .lessonName(saved.getLessonName())
-                .chapterName(chapter != null ? chapter.getChapterName() : "")
-                .videoUrl(saved.getVideoUrl())
-                .pdfUrl(saved.getPdfUrl())
-                .message("Cập nhật bài học và upload file thành công.")
-                .build();
+        return lessonMapper.toCreateResponse(saved, chapter != null ? chapter.getChapterName() : "", "Cập nhật bài học và upload file thành công.");
     }
 
     @Transactional
@@ -1035,34 +914,8 @@ public class AdminService {
         LessonEntity lesson = lessonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bài học với ID: " + id));
 
-        ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
-        String chapterName = "";
-        String subjectName = "";
-        String gradeName = "";
-
-        if (chapter != null) {
-            chapterName = chapter.getChapterName();
-            SubjectEntity sub = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
-            if (sub != null) {
-                subjectName = sub.getName();
-                gradeName = sub.getGrade();
-            }
-        }
-
-        LessonResponseDTO dto = new LessonResponseDTO();
-        dto.setId(lesson.getId());
-        dto.setLessonName(lesson.getLessonName());
-        dto.setContent(lesson.getContent());
-        dto.setVideoUrl(lesson.getVideoUrl());
-        dto.setPdfUrl(lesson.getPdfUrl());
-        dto.setDuration(lesson.getDuration());
-        dto.setStatus(lesson.getStatus());
-        dto.setType(lesson.getType());
-        dto.setChapterId(lesson.getChapterId());
-        dto.setChapterName(chapterName);
-        dto.setSubject(subjectName);
-        dto.setGrade(gradeName);
-        return dto;
+        LessonContext context = resolveLessonContext(lesson);
+        return lessonMapper.toResponse(lesson, context.chapterName(), context.subjectName(), context.gradeName());
     }
 
     // ===================== LESSON SEARCH (ADMIN) =====================
@@ -1079,36 +932,8 @@ public class AdminService {
         List<LessonEntity> lessons = lessonRepository.searchLessons(searchKeyword, searchSubject, searchGrade);
 
         return lessons.stream().map(lesson -> {
-            String chapterName = "";
-            String subjectName = "";
-            String gradeName = "";
-
-            if (lesson.getChapterId() > 0) {
-                ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
-                if (chapter != null) {
-                    chapterName = chapter.getChapterName();
-                    SubjectEntity sub = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
-                    if (sub != null) {
-                        subjectName = sub.getName();
-                        gradeName = sub.getGrade();
-                    }
-                }
-            }
-
-            LessonResponseDTO dto = new LessonResponseDTO();
-            dto.setId(lesson.getId());
-            dto.setLessonName(lesson.getLessonName());
-            dto.setContent(lesson.getContent());
-            dto.setVideoUrl(lesson.getVideoUrl());
-            dto.setPdfUrl(lesson.getPdfUrl());
-            dto.setDuration(lesson.getDuration());
-            dto.setStatus(lesson.getStatus());
-            dto.setType(lesson.getType());
-            dto.setChapterId(lesson.getChapterId());
-            dto.setChapterName(chapterName);
-            dto.setSubject(subjectName);
-            dto.setGrade(gradeName);
-            return dto;
+            LessonContext context = resolveLessonContext(lesson);
+            return lessonMapper.toResponse(lesson, context.chapterName(), context.subjectName(), context.gradeName());
         }).toList();
     }
 
@@ -1139,6 +964,62 @@ public class AdminService {
         chapter.setOrderNumber(request.getOrderNumber() > 0 ? request.getOrderNumber() : 1);
 
         return chapterRepository.save(chapter);
+    }
+
+    private ChapterEntity resolveChapter(int chapterId) {
+        return chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy chương với ID: " + chapterId));
+    }
+
+    private void validateLessonName(String lessonName) {
+        if (lessonName == null || lessonName.isBlank()) {
+            throw new IllegalArgumentException("Tên bài học không được để trống.");
+        }
+    }
+
+    private String uploadVideo(CreateLessonUploadRequest request) throws IOException {
+        return request.getVideoFile() != null && !request.getVideoFile().isEmpty()
+                ? fileStorageService.uploadVideo(request.getVideoFile())
+                : null;
+    }
+
+    private String uploadVideo(UpdateLessonUploadRequest request) throws IOException {
+        return request.getVideoFile() != null && !request.getVideoFile().isEmpty()
+                ? fileStorageService.uploadVideo(request.getVideoFile())
+                : null;
+    }
+
+    private String uploadPdf(CreateLessonUploadRequest request) throws IOException {
+        return request.getPdfFile() != null && !request.getPdfFile().isEmpty()
+                ? fileStorageService.uploadPdf(request.getPdfFile())
+                : null;
+    }
+
+    private String uploadPdf(UpdateLessonUploadRequest request) throws IOException {
+        return request.getPdfFile() != null && !request.getPdfFile().isEmpty()
+                ? fileStorageService.uploadPdf(request.getPdfFile())
+                : null;
+    }
+
+    private LessonContext resolveLessonContext(LessonEntity lesson) {
+        if (lesson.getChapterId() <= 0) {
+            return new LessonContext("", "", "");
+        }
+
+        ChapterEntity chapter = chapterRepository.findById(lesson.getChapterId()).orElse(null);
+        if (chapter == null) {
+            return new LessonContext("", "", "");
+        }
+
+        SubjectEntity subject = subjectRepository.findById(chapter.getSubjectId()).orElse(null);
+        if (subject == null) {
+            return new LessonContext(chapter.getChapterName(), "", "");
+        }
+
+        return new LessonContext(chapter.getChapterName(), subject.getName(), subject.getGrade());
+    }
+
+    private record LessonContext(String chapterName, String subjectName, String gradeName) {
     }
 
     private String normalizeAccountRole(String role) {

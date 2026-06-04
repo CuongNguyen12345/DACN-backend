@@ -4,6 +4,7 @@ import com.cuong.backend.model.response.ChapterResponseDTO;
 import com.cuong.backend.model.response.BookmarkedLessonResponseDTO;
 import com.cuong.backend.model.response.LessonResponseDTO;
 import com.cuong.backend.model.response.PageResponse;
+import com.cuong.backend.model.response.CoinRewardResponse;
 import com.cuong.backend.model.response.QuizDetailResponseDTO;
 import com.cuong.backend.model.response.QuizResponseDTO;
 import com.cuong.backend.model.request.QuizSubmitRequest;
@@ -103,11 +104,11 @@ public class CourseController {
      * Đánh dấu bài học đã hoàn thành.
      */
     @PostMapping("/progress/complete")
-    public void markComplete(
+    public CoinRewardResponse markComplete(
             @RequestHeader("Authorization") String token,
             @RequestParam Integer lessonId) {
         long userId = userService.getUserId(token);
-        courseService.markLessonCompleted(userId, lessonId);
+        return courseService.markLessonCompleted(userId, lessonId);
     }
 
     /**

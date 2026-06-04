@@ -8,6 +8,7 @@ import com.cuong.backend.entity.QuestionEntity;
 import com.cuong.backend.entity.QuestionOptionEntity;
 import com.cuong.backend.entity.SubjectEntity;
 import com.cuong.backend.model.request.ExamSubmitRequest;
+import com.cuong.backend.model.response.CoinRewardResponse;
 import com.cuong.backend.model.response.ExamResultDetailResponse;
 import com.cuong.backend.model.response.ExamResultSummaryResponse;
 import com.cuong.backend.repository.ExamRepository;
@@ -18,6 +19,7 @@ import com.cuong.backend.util.OptionLabelUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,15 +35,26 @@ public class ExamResultService {
     private final ExamRepository examRepository;
     private final ExamResultRepository examResultRepository;
     private final SubjectRepository subjectRepository;
+    private final ShopService shopService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired
+    public ExamResultService(
+            ExamRepository examRepository,
+            ExamResultRepository examResultRepository,
+            SubjectRepository subjectRepository,
+            ShopService shopService) {
+        this.examRepository = examRepository;
+        this.examResultRepository = examResultRepository;
+        this.subjectRepository = subjectRepository;
+        this.shopService = shopService;
+    }
 
     public ExamResultService(
             ExamRepository examRepository,
             ExamResultRepository examResultRepository,
             SubjectRepository subjectRepository) {
-        this.examRepository = examRepository;
-        this.examResultRepository = examResultRepository;
-        this.subjectRepository = subjectRepository;
+        this(examRepository, examResultRepository, subjectRepository, null);
     }
 
     @Transactional
@@ -97,7 +110,10 @@ public class ExamResultService {
 
         ExamResultEntity saved = examResultRepository.save(result);
         examRepository.incrementAttemptCount(examId);
-        return toDetailResponse(saved);
+        CoinRewardResponse coinReward = shopService == null
+                ? CoinRewardResponse.builder().coinsEarned(0).coinBalance(0).message("").rewarded(false).build()
+                : shopService.rewardExamSubmission(userId, examId, saved.getScore());
+        return toDetailResponse(saved, coinReward);
     }
 
     @Transactional(readOnly = true)
@@ -116,7 +132,7 @@ public class ExamResultService {
     public ExamResultDetailResponse getResultDetail(long userId, long resultId) {
         ExamResultEntity result = examResultRepository.findByIdAndUserId(resultId, userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy kết quả bài thi."));
-        return toDetailResponse(result);
+        return toDetailResponse(result, null);
     }
 
     private AnswerSnapshot buildAnswerSnapshot(QuestionEntity question, String selectedLabel) {
@@ -176,7 +192,7 @@ public class ExamResultService {
                 .build();
     }
 
-    private ExamResultDetailResponse toDetailResponse(ExamResultEntity result) {
+    private ExamResultDetailResponse toDetailResponse(ExamResultEntity result, CoinRewardResponse coinReward) {
         return ExamResultDetailResponse.builder()
                 .id(result.getId())
                 .examId(result.getExamId())
@@ -187,6 +203,9 @@ public class ExamResultService {
                 .totalQuestions(result.getTotalQuestions())
                 .durationSeconds(result.getDurationSeconds())
                 .submittedAt(result.getSubmittedAt())
+                .coinsEarned(coinReward == null ? 0 : coinReward.getCoinsEarned())
+                .coinBalance(coinReward == null ? 0 : coinReward.getCoinBalance())
+                .coinMessage(coinReward == null ? "" : coinReward.getMessage())
                 .questions(result.getAnswers().stream()
                         .sorted(Comparator.comparingInt(ExamResultAnswerEntity::getOrderNumber))
                         .map(this::toQuestionResult)

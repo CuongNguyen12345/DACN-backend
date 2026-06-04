@@ -1,6 +1,8 @@
 package com.cuong.backend.service;
 
 import com.cuong.backend.entity.UserEntity;
+import com.cuong.backend.mapper.ExamMapper;
+import com.cuong.backend.mapper.LessonMapper;
 import com.cuong.backend.model.response.UserAccountDTO;
 import com.cuong.backend.repository.ExamRepository;
 import com.cuong.backend.repository.ChapterRepository;
@@ -38,7 +40,9 @@ class AdminServiceAccountTest {
                 mock(TopicMasteryRepository.class),
                 mock(LessonRepository.class),
                 mock(ChapterRepository.class),
-                mock(FileStorageService.class)
+                mock(FileStorageService.class),
+                mock(LessonMapper.class),
+                mock(ExamMapper.class)
         );
 
         UserEntity unassigned = new UserEntity();
@@ -89,7 +93,9 @@ class AdminServiceAccountTest {
                 topicMasteryRepository,
                 mock(LessonRepository.class),
                 mock(ChapterRepository.class),
-                mock(FileStorageService.class)
+                mock(FileStorageService.class),
+                mock(LessonMapper.class),
+                mock(ExamMapper.class)
         );
 
         UserEntity user = new UserEntity();
